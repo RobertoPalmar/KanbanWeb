@@ -1,0 +1,200 @@
+/**
+ * Tokens de diseño — extraídos del handoff hifi.
+ *
+ * Fuente: "Gestión de trabajo.dc.html". Donde el README y el HTML difieren,
+ * manda el HTML: es el artefacto de alta fidelidad. Las diferencias conocidas
+ * están anotadas abajo.
+ *
+ * Los colores de tipo, prioridad y persona NO cambian entre temas.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tema claro (por defecto)
+ * ------------------------------------------------------------------------- */
+
+:root,
+[data-tema='claro'] {
+  --lienzo: #f7f8f9;
+  --superficie: #ffffff;
+  --superficie-2: #f1f2f4;
+  --superficie-3: #e9ebef;
+
+  --linea: #e2e4e8;
+  --linea-fuerte: #c9ccd2;
+
+  --tinta: #14161a;
+  --tinta-2: #5b616b;
+  --tinta-3: #8a9099;
+
+  --acento: #0a73e8;
+  --acento-suave: #e2eefd;
+  --alerta: #e0182d;
+  --alerta-suave: #fde7e9;
+
+  /* Estados. El orden e1..e6 es el del tablero: borrador → cancelado.
+     Borrador es acromático y Cancelado neutro a propósito: los extremos no
+     compiten con el trabajo vivo, que es lo saturado. */
+  --e1-fg: #8a9099;  --e1-bg: transparent; /* borrador    */
+  --e2-fg: #7b3fd4;  --e2-bg: #f0e8fd;     /* por hacer   */
+  --e3-fg: #0a73e8;  --e3-bg: #e2eefd;     /* en progreso */
+  --e4-fg: #e07100;  --e4-bg: #fdf0de;     /* en revisión */
+  --e5-fg: #0f9d58;  --e5-bg: #e1f6eb;     /* finalizado  */
+  --e6-fg: #98a0aa;  --e6-bg: #f1f2f4;     /* cancelado   */
+
+  /* Barra lateral: oscura en ambos temas.
+     El README dice #A9B0BC / #6E7683; el HTML hifi dice lo siguiente. */
+  --nav-bg: #181b21;
+  --nav-fg: #bac1cc;
+  --nav-fg-2: #949ca8;
+  --nav-hover: #23272f;
+  --nav-activo: #2e333d;
+
+  --tarjeta-sombra: 0 1px 2px rgba(16, 20, 28, 0.08);
+  --tarjeta-sombra-alta: 0 4px 12px rgba(16, 20, 28, 0.14);
+  --sombra-panel: -1px 0 0 0 #c9ccd2;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tema oscuro
+ * ------------------------------------------------------------------------- */
+
+[data-tema='oscuro'] {
+  --lienzo: #0e1013;
+  --superficie: #16181c;
+  --superficie-2: #1c1f25;
+  --superficie-3: #23272e;
+
+  --linea: #262a31;
+  --linea-fuerte: #3a4048;
+
+  --tinta: #e9ebee;
+  --tinta-2: #9aa1ab;
+  --tinta-3: #6b727c;
+
+  --acento: #4d9dff;
+  --acento-suave: #122540;
+  --alerta: #ff5a6b;
+  --alerta-suave: #2e1418;
+
+  --e1-fg: #7c838d;  --e1-bg: transparent;
+  --e2-fg: #b48cff;  --e2-bg: #231a3a;
+  --e3-fg: #4d9dff;  --e3-bg: #112540;
+  --e4-fg: #ffa23d;  --e4-bg: #2e2011;
+  --e5-fg: #3ecb88;  --e5-bg: #0f2c1e;
+  --e6-fg: #9ca3ad;  --e6-bg: #23272e;
+
+  --nav-bg: #08090b;
+  --nav-fg: #aeb6c2;
+  --nav-fg-2: #8b939f;
+  --nav-hover: #16191f;
+  --nav-activo: #212630;
+
+  --tarjeta-sombra: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --tarjeta-sombra-alta: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --sombra-panel: -1px 0 0 0 #3a4048;
+}
+
+/* ---------------------------------------------------------------------------
+ * Densidad
+ *
+ * Cambiar la densidad NUNCA mueve columnas: solo altura de fila y tamaño de
+ * fuente. Si las columnas se recolocaran, el ojo perdería el mapa que ya
+ * aprendió.
+ * ------------------------------------------------------------------------- */
+
+[data-densidad='compacta'] {
+  --fila: 28px;
+  --fila-fs: 12px;
+  --celda-py: 0;
+}
+
+[data-densidad='comoda'] {
+  --fila: 36px;
+  --fila-fs: 13px;
+  --celda-py: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Columnas de la tabla
+ *
+ * La columna de peso se colapsa a 0px en vez de desaparecer del grid, para que
+ * el resto conserve su posición exacta al alternar el toggle de estimación.
+ * ------------------------------------------------------------------------- */
+
+[data-peso='si'] {
+  --cols: 8px 64px minmax(280px, 1fr) 92px 118px 58px 40px 76px 190px 46px 88px;
+}
+
+[data-peso='no'] {
+  --cols: 8px 64px minmax(280px, 1fr) 92px 118px 58px 40px 76px 190px 0px 88px;
+}
+
+[data-peso='no'] [data-col='peso'] {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base tipográfica
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --fuente-ui: Archivo, system-ui, sans-serif;
+  --fuente-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radio-chip: 6px;
+  --radio-input: 8px;
+  --radio-campo: 10px;
+  --radio-tarjeta: 12px;
+  --radio-panel: 14px;
+  --radio-modal: 16px;
+  --radio-pildora: 99px;
+}
+
+html {
+  font-family: var(--fuente-ui);
+  font-size: 13px;
+}
+
+/* text-wrap: pretty en todo párrafo y título de tarjeta: evita la palabra
+   huérfana en la última línea, que en tarjetas de 280px es constante. */
+p,
+.titulo-tarjeta {
+  text-wrap: pretty;
+}
+
+/* ---------------------------------------------------------------------------
+ * Foco
+ *
+ * Nunca `outline: none` sin reemplazo: el teclado es la vía de navegación
+ * principal en una herramienta que se usa ocho horas por día.
+ * ------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+button:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Hacia adentro: una fila de tabla con outline hacia afuera se solaparía con
+   la fila vecina. */
+[role='row']:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Movimiento
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
