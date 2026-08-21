@@ -176,13 +176,18 @@ export function dueTone(due: string | null, today = new Date()): DueTone {
   return 'normal'
 }
 
+/**
+ * El ámbar de "vence pronto" sale de `--e4-fg` y no de su hex: en tema claro
+ * vale #E07100 y en oscuro #FFA23D. Un hex fijo se vería casi negro contra
+ * `--superficie` en modo oscuro.
+ */
 export function dueToneColor(tone: DueTone): string {
   switch (tone) {
     case 'overdue':
     case 'today':
       return 'var(--alerta)'
     case 'soon':
-      return '#E07100'
+      return 'var(--e4-fg)'
     default:
       return 'var(--tinta-2)'
   }

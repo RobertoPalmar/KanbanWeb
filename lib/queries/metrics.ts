@@ -99,13 +99,19 @@ export async function getAgingWip(
   return data
 }
 
-/** Color del nivel de aging, según los tokens del handoff. */
+/**
+ * Color del nivel de aging, según los tokens del handoff.
+ *
+ * El ámbar sale de `--e4-fg` (el naranja de "En revisión") y no de su hex: en
+ * tema claro vale #E07100 y en oscuro #FFA23D. Un hex fijo se vería casi negro
+ * contra `--superficie` en modo oscuro.
+ */
 export function agingColor(level: AgingLevel): string {
   switch (level) {
     case 'critico':
       return 'var(--alerta)'
     case 'alerta':
-      return '#E07100'
+      return 'var(--e4-fg)'
     case 'atencion':
       return 'var(--tinta-2)'
     default:
