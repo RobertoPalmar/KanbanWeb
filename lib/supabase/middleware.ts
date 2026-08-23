@@ -10,8 +10,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 
-/** Rutas accesibles sin sesión. */
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/auth/confirm']
+/** Rutas accesibles sin sesión, por prefijo. */
+const PUBLIC_PREFIXES = ['/login', '/registro', '/auth/callback', '/auth/confirm']
+
+/**
+ * Rutas públicas exactas.
+ *
+ * La portada es una de ellas: nadie debería caer en un formulario de login sin
+ * saber antes a qué está entrando.
+ */
+const PUBLIC_EXACT = ['/']
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -44,7 +52,8 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p))
+  const isPublic =
+    PUBLIC_EXACT.includes(path) || PUBLIC_PREFIXES.some((p) => path.startsWith(p))
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
@@ -56,7 +65,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && path === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/tickets'
     url.search = ''
     return NextResponse.redirect(url)
   }

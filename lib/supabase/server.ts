@@ -55,7 +55,10 @@ export function createServiceClient() {
     )
   }
 
-  const { createClient: createSupabaseClient } = require('@supabase/supabase-js')
+  // require y no import: así este módulo no arrastra supabase-js si alguien lo
+  // importa por error desde código de navegador.
+  const { createClient: createSupabaseClient } =
+    require('@supabase/supabase-js') as typeof import('@supabase/supabase-js')
 
   return createSupabaseClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

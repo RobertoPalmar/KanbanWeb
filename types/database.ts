@@ -679,8 +679,42 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          code: string
+          created_at: string
+          created_by: string
+          email: string
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          email: string
+          expires_at?: string
+          id?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          email?: string
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
+          active: boolean
           avatar_url: string | null
           capacity: number
           created_at: string
@@ -692,6 +726,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           avatar_url?: string | null
           capacity?: number
           created_at?: string
@@ -703,6 +738,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           avatar_url?: string | null
           capacity?: number
           created_at?: string
@@ -960,6 +996,14 @@ export type Database = {
       }
     }
     Functions: {
+      invitation_valida: {
+        Args: { p_code: string; p_email: string }
+        Returns: boolean
+      }
+      invitation_aceptar: {
+        Args: { p_code: string; p_email: string }
+        Returns: boolean
+      }
       can_transition: {
         Args: {
           p_from: Database["public"]["Enums"]["issue_state"]

@@ -130,10 +130,16 @@ export const AVATAR_COLORS = [
   '#8A9099',
 ] as const
 
+/**
+ * FNV-1a y no un `hash * 31`: los uuid de un mismo lote comparten estructura
+ * ("1111…", "2222…") y con el multiplicador chico caían todos en el mismo
+ * cubo — cinco personas, un solo color.
+ */
 export function avatarColor(userId: string): string {
-  let hash = 0
+  let hash = 0x811c9dc5
   for (let i = 0; i < userId.length; i++) {
-    hash = (hash * 31 + userId.charCodeAt(i)) | 0
+    hash ^= userId.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
   }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }

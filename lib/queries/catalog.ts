@@ -41,7 +41,9 @@ export async function getPriorities(supabase: Client, includeArchived = false) {
 export async function getUsers(supabase: Client) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, email, avatar_url, role')
+    // `job_title` es descriptivo ("Producción y eventos") y `role` es permisos:
+    // la vista Personas muestra el primero y nunca el segundo.
+    .select('id, name, email, avatar_url, role, job_title, capacity')
     .order('name', { ascending: true })
 
   if (error) throw error
@@ -128,7 +130,7 @@ export async function saveView(
   const { data, error } = await supabase
     .from('saved_views')
     .upsert(
-      { user_id: userId, name, filters_json: filters },
+      { user_id: userId, name, filters_json: filters as never },
       { onConflict: 'user_id,name' },
     )
     .select('id')

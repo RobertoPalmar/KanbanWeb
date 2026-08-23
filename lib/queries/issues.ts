@@ -35,8 +35,8 @@ export interface IssueFilters {
 
 const ISSUE_SELECT = `
   id, number, title, description, state, weight, due_date,
-  created_at, updated_at, imported,
-  type:issue_types!issues_type_id_fkey ( id, name, color, icon ),
+  created_at, updated_at, imported, owner_id, created_by, type_id, priority_id,
+  type:issue_types!issues_type_id_fkey ( id, name, color, icon, abbrev ),
   priority:priorities ( id, name, color, order ),
   owner:users!issues_owner_id_fkey ( id, name, email, avatar_url ),
   creator:users!issues_created_by_fkey ( id, name, email, avatar_url ),
@@ -161,7 +161,7 @@ export async function moveIssueState(
   const { error } = await supabase.rpc('move_issue_state', {
     p_issue_id: issueId,
     p_to_state: toState,
-    p_comment: comment ?? null,
+    p_comment: comment ?? undefined,
   })
 
   if (!error) return { ok: true }
@@ -194,7 +194,7 @@ export async function updateIssue(
   issueId: string,
   input: UpdateIssueInput,
 ) {
-  const patch: Record<string, unknown> = {}
+  const patch: Database['public']['Tables']['issues']['Update'] = {}
   if (input.title !== undefined) patch.title = input.title
   if (input.description !== undefined) patch.description = input.description
   if (input.typeId !== undefined) patch.type_id = input.typeId

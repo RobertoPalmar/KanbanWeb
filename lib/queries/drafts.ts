@@ -33,7 +33,8 @@ export async function approveDraft(supabase: Client, issueId: string) {
   const { error } = await supabase.rpc('move_issue_state', {
     p_issue_id: issueId,
     p_to_state: 'todo',
-    p_comment: null,
+    // Aprobar no exige motivo: el activity log ya registra quién aprobó.
+    p_comment: undefined,
   })
 
   if (error) throw error
