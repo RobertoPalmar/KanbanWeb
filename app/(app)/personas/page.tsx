@@ -65,25 +65,39 @@ export default async function PersonasPage() {
               return (
                 <article key={p.id} className="tarjeta-panel tarjeta-persona">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <Avatar persona={persona} size={38} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      {esAdmin ? (
+                    {(() => {
+                      const identidad = (
+                        <>
+                          <Avatar persona={persona} size={38} />
+                          <span style={{ minWidth: 0, flex: 1 }}>
+                            <strong style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>
+                              {p.name}
+                            </strong>
+                            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--tinta-2)' }}>
+                              {p.job_title ??
+                                (p.role === 'admin' ? 'Administra el tablero' : 'Miembro del equipo')}
+                            </span>
+                          </span>
+                        </>
+                      )
+
+                      // Toda la fila de identidad (avatar + nombre + rol + hueco)
+                      // es el destino de clic; el chip de vencidos queda fuera
+                      // porque es informativo y no debe tragar el clic.
+                      return esAdmin ? (
                         <Link
                           href={`/personas/${p.id}`}
-                          style={{ display: 'block', fontSize: 14, fontWeight: 600 }}
+                          className="cabecera-persona"
                           title="Ver ficha con métricas"
                         >
-                          {p.name}
+                          {identidad}
                         </Link>
                       ) : (
-                        <strong style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>
-                          {p.name}
-                        </strong>
-                      )}
-                      <span style={{ fontSize: 11.5, color: 'var(--tinta-2)' }}>
-                        {p.job_title ?? (p.role === 'admin' ? 'Administra el tablero' : 'Miembro del equipo')}
-                      </span>
-                    </div>
+                        <span className="cabecera-persona" data-estatico="">
+                          {identidad}
+                        </span>
+                      )
+                    })()}
                     <span
                       className="chip-estado ui-xs"
                       style={
