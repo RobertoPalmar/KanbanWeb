@@ -1608,13 +1608,32 @@ textarea.campo {
  * Tarjetas de panel, personas, ajustes
  * ------------------------------------------------------------------------- */
 
+/* El ancho maximo viene del handoff; el centrado es lo que faltaba: sin
+   `margin-inline: auto` el contenido se pegaba al borde izquierdo y dejaba
+   todo el espacio sobrante a la derecha en pantallas anchas. */
 .pagina {
+  width: 100%;
   max-width: 1180px;
+  margin-inline: auto;
   padding: 24px 28px 60px;
 }
 
 .pagina-angosta {
+  width: 100%;
   max-width: 720px;
+  margin-inline: auto;
+  padding: 24px 28px 60px;
+}
+
+/* Ajustes necesita mas aire que Mi perfil: la fila de miembro lleva correo,
+   puesto, capacidad, tres botones de rol, quitar acceso y ficha en una linea.
+   A 720px se apinaba; 1180px (`.pagina`) dejaba los parrafos de ayuda con
+   lineas ilegibles. 960px es el punto medio: la fila entra sin apretar y el
+   texto corrido sigue en un ancho de lectura razonable. */
+.pagina-ajustes {
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
   padding: 24px 28px 60px;
 }
 
@@ -1705,15 +1724,48 @@ textarea.campo {
   min-width: 0;
 }
 
-.fila-ajuste-texto strong {
+.fila-ajuste-texto > strong {
   display: block;
   font-size: 13px;
   font-weight: 500;
 }
 
-.fila-ajuste-texto span {
+/* Sin `overflow: hidden` el correo largo desbordaba la caja ya encogida por
+   `flex: 1` y se dibujaba encima de la etiqueta `cap`: el min-width: 0 del
+   padre deja que la caja se angoste, pero el texto no se recorta solo.
+   Se limita a la fila de miembro: en las otras filas de ajuste el texto de
+   apoyo es un parrafo que debe envolver, no recortarse. */
+.fila-ajuste-texto-1linea > strong,
+.fila-ajuste-texto-1linea > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fila-ajuste-texto > span {
   font-size: 11.5px;
   color: var(--tinta-2);
+}
+
+.fila-ajuste-texto-1linea > span {
+  display: block;
+}
+
+/* Los controles de la derecha son de ancho fijo: si se los deja encoger
+   (`flex-shrink: 1` por defecto) invaden el texto en vez de recortarlo. */
+.fila-ajuste > .avatar,
+.fila-ajuste > label,
+.fila-ajuste > .segmentado,
+.fila-ajuste > .btn-secundario,
+.fila-ajuste > .interruptor,
+.fila-ajuste-controles {
+  flex: none;
+}
+
+.fila-ajuste-controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Calendario ----------------------------------------------------------- */
@@ -1911,6 +1963,34 @@ textarea.campo {
   box-shadow: var(--tarjeta-sombra-alta);
 }
 
+/* La cabecera completa (avatar + nombre + rol + hueco) navega a la ficha. */
+.cabecera-persona {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  margin: -5px -6px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cabecera-persona:hover {
+  background: var(--superficie-2);
+}
+
+.cabecera-persona[data-estatico] {
+  cursor: default;
+}
+
+.cabecera-persona[data-estatico]:hover {
+  background: transparent;
+}
+
 /* Bandeja de borradores ------------------------------------------------- */
 
 .bandeja {
@@ -2066,7 +2146,8 @@ textarea.campo {
   }
 
   .pagina,
-  .pagina-angosta {
+  .pagina-angosta,
+  .pagina-ajustes {
     padding: 16px 14px 48px;
   }
 
@@ -2327,6 +2408,87 @@ textarea.campo {
   }
 }
 
+/* Indicador global de guardado (Ajustes) --------------------------------
+
+   Una sola píldora abajo a la derecha para toda la pantalla. Ajustes son
+   controles sueltos en varias secciones: un spinner por sección obliga a
+   elegir CUÁL lo pinta, y esa elección siempre queda mal en las demás.
+
+   La zona vive siempre en el árbol (es el contenedor con role="status"), así
+   que no puede llevar `display: none`: se le quitan los eventos de puntero para
+   que no tape nada cuando está vacía. */
+.indicador-guardado-zona {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 95;
+  pointer-events: none;
+}
+
+.indicador-guardado {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(360px, calc(100vw - 36px));
+  padding: 8px 13px;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 99px;
+  background: var(--superficie);
+  box-shadow: var(--tarjeta-sombra-alta);
+  color: var(--tinta-1);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: aparecer-indicador 0.16s ease-out;
+}
+
+.indicador-guardado-guardando {
+  color: var(--tinta-2);
+}
+
+.indicador-guardado-guardado {
+  border-color: var(--e5-fg);
+  background: var(--e5-bg);
+  color: var(--e5-fg);
+}
+
+/* El error puede ser una frase entera, no una palabra: deja de ser píldora. */
+.indicador-guardado-error {
+  border-color: var(--alerta);
+  border-radius: 10px;
+  background: var(--alerta-suave);
+  color: var(--alerta);
+}
+
+/* Tilde dibujado con bordes: dos lados de un cuadrado girado 45°. */
+.indicador-guardado-tilde {
+  flex: none;
+  width: 11px;
+  height: 6px;
+  margin-bottom: 3px;
+  border: solid currentColor;
+  border-width: 0 0 1.8px 1.8px;
+  transform: rotate(-45deg);
+}
+
+@keyframes aparecer-indicador {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (max-width: 700px) {
+  .indicador-guardado-zona {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .indicador-guardado {
+    max-width: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 1.6s;
@@ -2334,6 +2496,9 @@ textarea.campo {
   .progreso-ruta {
     animation: none;
     transform: scaleX(0.4);
+  }
+  .indicador-guardado {
+    animation: none;
   }
 }
 
@@ -2399,6 +2564,282 @@ textarea.campo {
   }
 }
 
+/* Catálogo: tipos de ticket y etiquetas -------------------------------- */
+
+/* Rejilla de la paleta fija. Seis columnas de 26px: doce colores caben en dos
+   filas, y en dos filas el ojo compara tonos vecinos de un golpe. Con `auto-fit`
+   la cantidad de columnas cambiaría con el ancho y los colores dejarían de caer
+   siempre en el mismo lugar, que es justo lo que hace memorizable un selector
+   que se usa seguido. */
+.paleta-rejilla {
+  display: grid;
+  grid-template-columns: repeat(6, 26px);
+  gap: 6px;
+  width: max-content;
+}
+
+.paleta-muestra {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.paleta-muestra:hover:not(:disabled) {
+  transform: scale(1.08);
+}
+
+.paleta-muestra:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* El elegido pierde el borde neutro: el anillo de color que le pone el
+   componente por box-shadow ya lo delimita, y los dos juntos se ven sucios. */
+.paleta-muestra[data-elegido='si'] {
+  border-color: transparent;
+}
+
+.paleta-punto {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 99px;
+}
+
+/* Formulario de alta. Fila de campos que envuelve: en la tarjeta de Ajustes hay
+   ~560px útiles y nombre + sigla + paleta + botón no entran en una línea. */
+.catalogo-alta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--linea);
+}
+
+.catalogo-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.catalogo-campo > span {
+  font-family: var(--fuente-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.catalogo-campo-nombre {
+  flex: 1 1 200px;
+}
+
+.catalogo-campo .campo {
+  height: 32px;
+  font-size: 12px;
+}
+
+/* La sigla se escribe y se lee en mono: son dos caracteres que representan al
+   tipo en la fila de 28px, y en mono ocupan siempre lo mismo. */
+.campo-sigla {
+  width: 68px;
+  font-family: var(--fuente-mono);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Vista previa: la píldora real, no una aproximación. Que el admin vea la
+   pieza exacta que va a aparecer en la tabla antes de guardar. */
+.catalogo-previa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+
+/* Fila de un elemento del catálogo con sus controles. */
+.catalogo-fila {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+.catalogo-fila:last-of-type {
+  border-bottom: 0;
+}
+
+.catalogo-fila-acciones {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Botón de texto para archivar/desarchivar: es una acción reversible y de baja
+   frecuencia, no merece el peso visual de un botón secundario completo. */
+.btn-texto {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--tinta-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.btn-texto:hover:not(:disabled) {
+  color: var(--tinta);
+  text-decoration: underline;
+}
+
+.btn-texto:disabled {
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+/* Variante destructiva del botón de texto: borrar es irreversible y no puede
+   leerse igual que "Editar". Va en `--alerta` y no en un botón rojo lleno para
+   no volverlo lo más llamativo de la tarjeta: el peso visual tiene que estar en
+   "Guardar cambios", que es la acción esperada del panel. */
+.btn-texto-peligro {
+  color: var(--alerta);
+}
+
+.btn-texto-peligro:hover:not(:disabled) {
+  color: var(--alerta);
+}
+
+/* Conteo de uso de cada fila (tickets de un tipo, tickets de una etiqueta).
+   En mono porque es un número que el ojo compara entre filas, y `margin-left`
+   automático NO: la fila ya empuja las acciones a la derecha con `auto`, así
+   que el conteo se queda junto al nombre, que es lo que califica. */
+.catalogo-uso {
+  font-family: var(--fuente-mono);
+  font-size: 10.5px;
+  color: var(--tinta-3);
+  white-space: nowrap;
+}
+
+/* Panel de edición: ocupa el lugar de la fila en la lista.
+   Fondo `--superficie-2` y no un borde de color: el panel tiene que leerse como
+   "esta fila está abierta" y no como una alerta. El borde izquierdo en `--acento`
+   marca de qué fila se trata cuando la lista es larga. */
+.catalogo-editor {
+  padding: 10px 12px;
+  margin: 6px 0;
+  border: 1px solid var(--linea);
+  border-left: 2px solid var(--acento);
+  border-radius: 10px;
+  background: var(--superficie-2);
+}
+
+/* Misma disposición que `.catalogo-alta` —fila de campos que envuelve— para que
+   editar y crear se vean como la misma operación. Sin el borde superior: acá el
+   contenedor ya está delimitado por la tarjeta del editor. */
+.catalogo-editor-campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.catalogo-editor-acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--linea);
+}
+
+/* Archivar y borrar se van a la derecha, separados de guardar y cancelar: son
+   de otra clase de acción y no tienen que quedar a un pixel del botón que el
+   admin va a apretar noventa veces de cada cien. */
+.catalogo-editor-peligro {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* Confirmación en línea, no un modal.
+   El patrón del proyecto para lo destructivo es el botón que se explica en su
+   `title` (ver "Quitar acceso" en Equipo), pero borrar no es reversible como
+   quitar un acceso, así que hace falta un segundo paso explícito. En línea y no
+   en diálogo por lo mismo que la edición: el conteo de tickets que justifica la
+   decisión está en la fila, y un overlay lo taparía. */
+.catalogo-confirma {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--alerta);
+  border-radius: 8px;
+  background: var(--alerta-suave);
+  font-size: 11.5px;
+  color: var(--tinta);
+}
+
+/* Aviso de validación del panel (sigla o nombre ya tomados). */
+.catalogo-aviso {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--alerta);
+}
+
+/* Explicación de por qué no hay botón de borrar. Es texto, no una alerta: no
+   pasó nada mal, simplemente esa acción no aplica a este tipo. */
+.catalogo-nota {
+  font-size: 11px;
+  color: var(--tinta-3);
+  max-width: 42ch;
+}
+
+@media (max-width: 640px) {
+  /* El bloque de archivar/borrar baja a su propia línea: al lado de "Guardar
+     cambios" en 360px quedaría un botón de texto de dos caracteres de ancho. */
+  .catalogo-editor-peligro {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  /* En teléfono el nombre toma la línea entera y la sigla queda al lado de la
+     paleta: apilar los cuatro controles haría un formulario de scroll largo. */
+  .catalogo-campo-nombre {
+    flex: 1 1 100%;
+  }
+
+  .catalogo-alta .btn-primario {
+    flex: 1 1 100%;
+    justify-content: center;
+    height: 34px;
+  }
+
+  .catalogo-fila-acciones {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
 /* Perfil y administración del equipo ----------------------------------- */
 
 /* Los campos de estas dos pantallas viven en filas de etiqueta + control.
@@ -2456,6 +2897,22 @@ textarea.campo {
 
   .fila-ajuste .segmentado button {
     flex: 1;
+  }
+
+  /* En columna el texto ya tiene toda la linea: puede envolver sin recortar. */
+  .fila-ajuste-texto-1linea > strong,
+  .fila-ajuste-texto-1linea > span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  /* En columna el grupo ocupa la linea y sus controles envuelven: el
+     segmentado al 100% no deja sitio a `Quitar acceso` ni a `Ficha`. */
+  .fila-ajuste-controles {
+    flex: initial;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .fila-guardar {

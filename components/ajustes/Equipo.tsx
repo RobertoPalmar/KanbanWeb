@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -15,7 +15,7 @@ import { fechaCorta, plural } from '@/lib/format'
 import type { Role } from '@/lib/permissions'
 import { Avatar } from '@/components/ui/piezas'
 import { IconoCerrar } from '@/components/ui/iconos'
-import { Spinner } from '@/components/ui/Spinner'
+import { useGuardado } from '@/components/ui/ContextoGuardado'
 
 export interface Miembro {
   id: string
@@ -62,8 +62,10 @@ export function Equipo({
   yoId: string
 }) {
   const router = useRouter()
-  const [pendiente, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  // Igual que en `Ajustes`: el feedback de guardado lo pinta el indicador
+  // global. Acá hay una fila por miembro, así que un spinner por sección
+  // tendría que elegir cuál de las filas lo muestra.
+  const { guardar, estado } = useGuardado()
   const [nombre, setNombre] = useState(nombreEquipo)
   const [correoInvitado, setCorreoInvitado] = useState('')
   const [codigoNuevo, setCodigoNuevo] = useState<string | null>(null)
@@ -71,13 +73,11 @@ export function Equipo({
   const activos = miembros.filter((m) => m.active)
   const bloqueados = miembros.filter((m) => !m.active)
   const pendientes = invitaciones.filter((i) => !i.accepted_at)
+  const pendiente = estado === 'guardando'
 
   function correr(accion: () => Promise<{ ok: boolean; error?: string }>) {
-    startTransition(async () => {
-      setError(null)
-      const res = await accion()
-      if (!res.ok) setError(res.error ?? 'No se pudo aplicar el cambio.')
-      else router.refresh()
+    void guardar(accion).then((ok) => {
+      if (ok) router.refresh()
     })
   }
 
@@ -89,8 +89,6 @@ export function Equipo({
           Es lo que se ve en la barra lateral y en la migaja del encabezado. Hasta 60 caracteres:
           la barra mide 196px y el resto se recorta.
         </p>
-
-        {error && <p className="error-caja" style={{ marginBottom: 10 }}>{error}</p>}
 
         <div className="fila-guardar">
           <input
@@ -106,7 +104,6 @@ export function Equipo({
             disabled={pendiente || nombre.trim() === nombreEquipo || !nombre.trim()}
             onClick={() => correr(() => guardarNombreEquipo(nombre))}
           >
-            {pendiente && <Spinner label="Guardando" />}
             Guardar
           </button>
         </div>
@@ -119,10 +116,10 @@ export function Equipo({
         </h3>
 
         {miembros.map((m) => (
-          <div className="fila-ajuste" key={m.id} style={{ gap: 10, alignItems: 'center' }}>
+          <div className="fila-ajuste" key={m.id}>
             <Avatar persona={m} size={32} />
 
-            <span className="fila-ajuste-texto">
+            <span className="fila-ajuste-texto fila-ajuste-texto-1linea">
               <strong style={{ textDecoration: m.active ? undefined : 'line-through' }}>
                 {m.name}
                 {m.id === yoId && (
@@ -137,70 +134,72 @@ export function Equipo({
               </span>
             </span>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span className="mono-xs" style={{ color: 'var(--tinta-3)' }}>
-                cap
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                defaultValue={m.capacity}
-                className="campo campo-capacidad mono"
-                disabled={pendiente}
-                aria-label={`Capacidad de ${m.name}`}
-                onBlur={(e) => {
-                  const v = Number(e.target.value)
-                  if (v !== m.capacity) correr(() => cambiarCapacidad(m.id, v))
+            <div className="fila-ajuste-controles">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span className="mono-xs" style={{ color: 'var(--tinta-3)' }}>
+                  cap
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  defaultValue={m.capacity}
+                  className="campo campo-capacidad mono"
+                  disabled={pendiente}
+                  aria-label={`Capacidad de ${m.name}`}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value)
+                    if (v !== m.capacity) correr(() => cambiarCapacidad(m.id, v))
+                  }}
+                />
+              </label>
+
+              <div className="segmentado" role="group" aria-label={`Rol de ${m.name}`}>
+                {ROLES.map((r) => (
+                  <button
+                    key={r.valor}
+                    type="button"
+                    title={r.detalle}
+                    style={{ fontSize: 11, padding: '0 8px' }}
+                    aria-pressed={m.role === r.valor}
+                    disabled={pendiente || !m.active}
+                    onClick={() => m.role !== r.valor && correr(() => cambiarRol(m.id, r.valor))}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{
+                  height: 26,
+                  color: m.active ? 'var(--alerta)' : undefined,
+                  borderColor: m.active ? 'var(--alerta)' : undefined,
                 }}
-              />
-            </label>
+                disabled={pendiente || m.id === yoId}
+                title={
+                  m.id === yoId
+                    ? 'No podés quitarte el acceso a vos mismo'
+                    : m.active
+                      ? 'Deja de entrar. Su historial se conserva.'
+                      : 'Le devuelve el acceso'
+                }
+                onClick={() => correr(() => cambiarAcceso(m.id, !m.active))}
+              >
+                {m.active ? 'Quitar acceso' : 'Reactivar'}
+              </button>
 
-            <div className="segmentado" role="group" aria-label={`Rol de ${m.name}`}>
-              {ROLES.map((r) => (
-                <button
-                  key={r.valor}
-                  type="button"
-                  title={r.detalle}
-                  style={{ fontSize: 11, padding: '0 8px' }}
-                  aria-pressed={m.role === r.valor}
-                  disabled={pendiente || !m.active}
-                  onClick={() => m.role !== r.valor && correr(() => cambiarRol(m.id, r.valor))}
-                >
-                  {r.label}
-                </button>
-              ))}
+              <Link
+                className="btn-secundario"
+                style={{ height: 26 }}
+                href={`/personas/${m.id}`}
+                title="Ver ficha con métricas"
+              >
+                Ficha
+              </Link>
             </div>
-
-            <button
-              type="button"
-              className="btn-secundario"
-              style={{
-                height: 26,
-                color: m.active ? 'var(--alerta)' : undefined,
-                borderColor: m.active ? 'var(--alerta)' : undefined,
-              }}
-              disabled={pendiente || m.id === yoId}
-              title={
-                m.id === yoId
-                  ? 'No podés quitarte el acceso a vos mismo'
-                  : m.active
-                    ? 'Deja de entrar. Su historial se conserva.'
-                    : 'Le devuelve el acceso'
-              }
-              onClick={() => correr(() => cambiarAcceso(m.id, !m.active))}
-            >
-              {m.active ? 'Quitar acceso' : 'Reactivar'}
-            </button>
-
-            <Link
-              className="btn-secundario"
-              style={{ height: 26 }}
-              href={`/personas/${m.id}`}
-              title="Ver ficha con métricas"
-            >
-              Ficha
-            </Link>
           </div>
         ))}
 
@@ -231,20 +230,22 @@ export function Equipo({
             type="button"
             className="btn-primario"
             disabled={pendiente || !correoInvitado.trim()}
-            onClick={() =>
-              startTransition(async () => {
-                setError(null)
+            onClick={() => {
+              setCodigoNuevo(null)
+              void guardar(async () => {
                 const res = await invitar(correoInvitado)
-                if (!res.ok) setError(res.error)
-                else {
-                  setCodigoNuevo(res.codigo)
+                // El código solo existe en esta respuesta: si no se guarda acá
+                // se pierde, y sin código la invitación no sirve para nada.
+                if (res.ok) setCodigoNuevo(res.codigo)
+                return res
+              }).then((ok) => {
+                if (ok) {
                   setCorreoInvitado('')
                   router.refresh()
                 }
               })
-            }
+            }}
           >
-            {pendiente && <Spinner label="Generando invitación" />}
             Invitar
           </button>
         </div>

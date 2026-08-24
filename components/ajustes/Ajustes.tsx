@@ -1,25 +1,21 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+// useState / useRouter / guardarNotificaciones solo los usaba la seccion de
+// Notificaciones, desactivada mas abajo. Se reactivan al descomentarla.
+// import { useState } from 'react'
+// import { useRouter } from 'next/navigation'
 import {
   guardarDensidad,
-  guardarNotificaciones,
+  // guardarNotificaciones,
   guardarPeso,
   guardarTema,
 } from '@/app/actions/prefs'
 import { FIBONACCI_WEIGHTS } from '@/lib/queries/catalog'
-import { typePillBackground } from '@/lib/design-map'
-import { Spinner } from '@/components/ui/Spinner'
+import { useGuardado } from '@/components/ui/ContextoGuardado'
 
-interface Tipo {
-  id: string
-  name: string
-  abbrev: string
-  color: string
-  archived: boolean
-}
-
+// Forma de las preferencias de notificacion. Se sigue recibiendo por props
+// desde app/(app)/ajustes/page.tsx para no romper la firma; el consumidor esta
+// desactivado (ver seccion de Notificaciones mas abajo).
 interface Notif {
   on_assigned: boolean
   on_mention: boolean
@@ -27,24 +23,26 @@ interface Notif {
 }
 
 export function Ajustes({
-  tipos,
   prefs,
   pesoActivo,
   esAdmin,
-  notif,
+  notif: _notif,
 }: {
-  tipos: Tipo[]
   prefs: { theme: 'claro' | 'oscuro'; density: 'compacta' | 'comoda' }
   pesoActivo: boolean
   esAdmin: boolean
   notif: Notif
 }) {
-  const router = useRouter()
-  const [pendiente, startTransition] = useTransition()
-  const [borrador, setBorrador] = useState<Notif>(notif)
-  const [error, setError] = useState<string | null>(null)
+  // El estado de guardado es de la pantalla, no de esta sección: lo pinta el
+  // indicador global que monta `ProveedorGuardado`.
+  const { guardar, estado } = useGuardado()
 
-  const sucio = JSON.stringify(borrador) !== JSON.stringify(notif)
+  const pendiente = estado === 'guardando'
+
+  // Estado local de la seccion de Notificaciones (desactivada mas abajo):
+  // const router = useRouter()
+  // const [borrador, setBorrador] = useState<Notif>(_notif)
+  // const sucio = JSON.stringify(borrador) !== JSON.stringify(_notif)
 
   return (
     <>
@@ -55,8 +53,6 @@ export function Ajustes({
         La visualización es tuya. El campo de peso y los tipos de trabajo son del equipo, y los
         cambia un admin.
       </p>
-
-      {error && <p className="error-caja" style={{ marginBottom: 14 }}>{error}</p>}
 
       <section className="tarjeta-panel" style={{ marginBottom: 14 }}>
         <h3 className="mono-xs">Visualización</h3>
@@ -71,7 +67,7 @@ export function Ajustes({
               type="button"
               aria-pressed={prefs.density === 'compacta'}
               disabled={pendiente}
-              onClick={() => startTransition(() => void guardarDensidad('compacta'))}
+              onClick={() => void guardar(() => guardarDensidad('compacta'))}
             >
               Compacta
             </button>
@@ -79,7 +75,7 @@ export function Ajustes({
               type="button"
               aria-pressed={prefs.density === 'comoda'}
               disabled={pendiente}
-              onClick={() => startTransition(() => void guardarDensidad('comoda'))}
+              onClick={() => void guardar(() => guardarDensidad('comoda'))}
             >
               Cómoda
             </button>
@@ -96,7 +92,7 @@ export function Ajustes({
               type="button"
               aria-pressed={prefs.theme === 'claro'}
               disabled={pendiente}
-              onClick={() => startTransition(() => void guardarTema('claro'))}
+              onClick={() => void guardar(() => guardarTema('claro'))}
             >
               Claro
             </button>
@@ -104,7 +100,7 @@ export function Ajustes({
               type="button"
               aria-pressed={prefs.theme === 'oscuro'}
               disabled={pendiente}
-              onClick={() => startTransition(() => void guardarTema('oscuro'))}
+              onClick={() => void guardar(() => guardarTema('oscuro'))}
             >
               Oscuro
             </button>
@@ -127,44 +123,21 @@ export function Ajustes({
             aria-checked={pesoActivo}
             aria-label="Campo de peso"
             disabled={pendiente || !esAdmin}
-            onClick={() =>
-              startTransition(async () => {
-                const res = await guardarPeso(!pesoActivo)
-                if (res.error) setError(res.error)
-              })
-            }
+            onClick={() => void guardar(() => guardarPeso(!pesoActivo))}
           >
             <span />
           </button>
         </div>
       </section>
 
-      <section className="tarjeta-panel" style={{ marginBottom: 14 }}>
-        <h3 className="mono-xs">Tipos de ticket</h3>
-        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--tinta-2)' }}>
-          Los tipos se archivan, nunca se borran: un tipo con tickets históricos que desaparece
-          rompe los reportes.
-        </p>
-        <div className="fila-opciones">
-          {tipos.map((t) => (
-            <span
-              key={t.id}
-              className="pill-tipo"
-              style={{
-                background: typePillBackground(t.color),
-                color: t.color,
-                height: 24,
-                opacity: t.archived ? 0.45 : 1,
-                textDecoration: t.archived ? 'line-through' : undefined,
-              }}
-              title={t.archived ? `${t.name} (archivado)` : t.name}
-            >
-              <span className="punto" style={{ background: t.color }} />
-              {t.abbrev} · {t.name}
-            </span>
-          ))}
-        </div>
-      </section>
+      {/* Tipos de ticket y etiquetas viven en <Catalogo>, que la página monta
+          aparte: son catálogos del equipo con alta y archivado propios, no
+          preferencias de visualización. */}
+
+      {/* Notificaciones: sección desactivada. El MVP 1 no envía nada todavía,
+          así que los interruptores prometían algo que no pasa. Se reactiva
+          junto con el envío, descomentando también los hooks de arriba y el
+          componente Fila de abajo.
 
       <section className="tarjeta-panel">
         <h3 className="mono-xs">Notificaciones</h3>
@@ -193,15 +166,10 @@ export function Ajustes({
             type="button"
             className="btn-primario"
             disabled={!sucio || pendiente}
-            onClick={() =>
-              startTransition(async () => {
-                const res = await guardarNotificaciones(borrador)
-                if (res.error) setError(res.error)
-                else router.refresh()
-              })
-            }
+            onClick={async () => {
+              if (await guardar(() => guardarNotificaciones(borrador))) router.refresh()
+            }}
           >
-            {pendiente && <Spinner label="Guardando" />}
             Guardar cambios
           </button>
           <button
@@ -214,9 +182,14 @@ export function Ajustes({
           </button>
         </div>
       </section>
+      */}
     </>
   )
 }
+
+/*
+  Fila: interruptor de una preferencia. Solo lo usaba la seccion de
+  Notificaciones, desactivada arriba. Se reactiva al descomentarla.
 
 function Fila({
   titulo,
@@ -248,3 +221,4 @@ function Fila({
     </div>
   )
 }
+*/
