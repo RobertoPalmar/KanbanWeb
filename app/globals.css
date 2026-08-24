@@ -2613,16 +2613,36 @@ textarea.campo {
   border-radius: 99px;
 }
 
-/* Formulario de alta. Fila de campos que envuelve: en la tarjeta de Ajustes hay
-   ~560px útiles y nombre + sigla + paleta + botón no entran en una línea. */
-.catalogo-alta {
+/* Cabecera de sección: el título y el "+" que abre el alta.
+   El "+" va acá y no al pie porque el alta dejó de ser un formulario
+   permanente: la sección es la LISTA, y crear es una acción de su cabecera. */
+.catalogo-cabecera {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  padding-top: 12px;
-  margin-top: 12px;
-  border-top: 1px solid var(--linea);
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* El h3 de `.tarjeta-panel` trae su propio margen inferior, que acá lo pone la
+   cabecera: si lo dejara, el "+" quedaría 14px más arriba que el texto. */
+.catalogo-cabecera h3 {
+  margin: 0;
+}
+
+.catalogo-agregar {
+  margin-left: auto;
+  flex: none;
+}
+
+.catalogo-agregar:disabled {
+  border-color: var(--linea);
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+.catalogo-agregar:disabled:hover {
+  border-color: var(--linea);
+  color: var(--tinta-3);
 }
 
 .catalogo-campo {
@@ -2713,18 +2733,6 @@ textarea.campo {
   cursor: not-allowed;
 }
 
-/* Variante destructiva del botón de texto: borrar es irreversible y no puede
-   leerse igual que "Editar". Va en `--alerta` y no en un botón rojo lleno para
-   no volverlo lo más llamativo de la tarjeta: el peso visual tiene que estar en
-   "Guardar cambios", que es la acción esperada del panel. */
-.btn-texto-peligro {
-  color: var(--alerta);
-}
-
-.btn-texto-peligro:hover:not(:disabled) {
-  color: var(--alerta);
-}
-
 /* Conteo de uso de cada fila (tickets de un tipo, tickets de una etiqueta).
    En mono porque es un número que el ojo compara entre filas, y `margin-left`
    automático NO: la fila ya empuja las acciones a la derecha con `auto`, así
@@ -2749,9 +2757,10 @@ textarea.campo {
   background: var(--superficie-2);
 }
 
-/* Misma disposición que `.catalogo-alta` —fila de campos que envuelve— para que
-   editar y crear se vean como la misma operación. Sin el borde superior: acá el
-   contenedor ya está delimitado por la tarjeta del editor. */
+/* Fila de campos que envuelve: en la tarjeta de Ajustes hay ~560px útiles y
+   nombre + sigla + paleta + previa no entran en una línea. La comparten el
+   panel de edición en el sitio y los mini modales de alta, para que editar y
+   crear se vean como la misma operación. */
 .catalogo-editor-campos {
   display: flex;
   flex-wrap: wrap;
@@ -2769,34 +2778,84 @@ textarea.campo {
   border-top: 1px solid var(--linea);
 }
 
-/* Archivar y borrar se van a la derecha, separados de guardar y cancelar: son
-   de otra clase de acción y no tienen que quedar a un pixel del botón que el
-   admin va a apretar noventa veces de cada cien. */
-.catalogo-editor-peligro {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-left: auto;
+/* Acciones de fila: lápiz, caja de archivar y papelera.
+   Cuadrado de 24px con el icono de 14px centrado. No usan `.btn-icono` tal cual
+   porque en reposo NO tienen borde: tres cajas con borde por fila, en catorce
+   filas, son cuarenta y dos rectángulos y la lista deja de leerse. El borde y
+   el fondo aparecen en hover y en foco, que es cuando el botón importa. */
+.btn-accion-fila {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--tinta-3);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
 
-/* Confirmación en línea, no un modal.
-   El patrón del proyecto para lo destructivo es el botón que se explica en su
-   `title` (ver "Quitar acceso" en Equipo), pero borrar no es reversible como
-   quitar un acceso, así que hace falta un segundo paso explícito. En línea y no
-   en diálogo por lo mismo que la edición: el conteo de tickets que justifica la
-   decisión está en la fila, y un overlay lo taparía. */
-.catalogo-confirma {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 8px;
-  border: 1px solid var(--alerta);
-  border-radius: 8px;
-  background: var(--alerta-suave);
-  font-size: 11.5px;
+.btn-accion-fila:hover:not(:disabled) {
+  border-color: var(--linea-fuerte);
+  background: var(--superficie-2);
   color: var(--tinta);
+}
+
+/* El foco de teclado tiene que verse SIN hover: es la única pista de dónde
+   está el cursor al recorrer catorce filas con Tab. */
+.btn-accion-fila:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+  color: var(--tinta);
+}
+
+/* La papelera en `--alerta` solo al apuntarla: en reposo, tres iconos rojos por
+   fila harían que lo más llamativo de la pantalla fuera lo destructivo. */
+.btn-accion-fila-peligro:hover:not(:disabled) {
+  border-color: var(--alerta);
+  background: var(--alerta-suave);
+  color: var(--alerta);
+}
+
+/* Deshabilitada NO es oculta. Los ocho tipos activos tienen tickets y su
+   papelera se rechaza en la base, pero el botón sigue en la fila, atenuado y
+   con el motivo y el conteo en el `title`: enseña que la acción existe y por
+   qué no aplica a esta fila. La opacidad es 0.4 y no menos para que el icono
+   siga siendo reconocible; el cursor `not-allowed` lo confirma al apuntarlo. */
+.btn-accion-fila:disabled {
+  color: var(--tinta-3);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-accion-fila:disabled:hover {
+  border-color: transparent;
+  background: none;
+}
+
+/* Confirmar un borrado es el botón primario de su diálogo —es lo que el admin
+   fue a hacer— pero no puede ir en `--acento`, que en esta aplicación significa
+   "la acción esperada y segura". Va en `--alerta` con el mismo peso. */
+.btn-primario-peligro {
+  background: var(--alerta);
+}
+
+/* Texto que reemplaza a la previa mientras no hay nada que previsualizar.
+   La píldora solo dibuja la SIGLA, así que con el nombre en placeholder se veía
+   una cápsula de color casi vacía que parecía un error del selector. */
+.catalogo-previa-vacia {
+  font-size: 11.5px;
+  color: var(--tinta-3);
+}
+
+/* El alta y el borrado del catálogo son diálogos chicos: centrados en vertical
+   y no clavados a 56px del borde como el modal de ticket nuevo, que es alto y
+   tiene scroll propio. */
+.overlay-mini {
+  align-items: center;
+  padding-top: 0;
 }
 
 /* Aviso de validación del panel (sigla o nombre ya tomados). */
@@ -2806,32 +2865,11 @@ textarea.campo {
   color: var(--alerta);
 }
 
-/* Explicación de por qué no hay botón de borrar. Es texto, no una alerta: no
-   pasó nada mal, simplemente esa acción no aplica a este tipo. */
-.catalogo-nota {
-  font-size: 11px;
-  color: var(--tinta-3);
-  max-width: 42ch;
-}
-
 @media (max-width: 640px) {
-  /* El bloque de archivar/borrar baja a su propia línea: al lado de "Guardar
-     cambios" en 360px quedaría un botón de texto de dos caracteres de ancho. */
-  .catalogo-editor-peligro {
-    margin-left: 0;
-    width: 100%;
-  }
-
   /* En teléfono el nombre toma la línea entera y la sigla queda al lado de la
      paleta: apilar los cuatro controles haría un formulario de scroll largo. */
   .catalogo-campo-nombre {
     flex: 1 1 100%;
-  }
-
-  .catalogo-alta .btn-primario {
-    flex: 1 1 100%;
-    justify-content: center;
-    height: 34px;
   }
 
   .catalogo-fila-acciones {
@@ -2926,5 +2964,60 @@ textarea.campo {
 
   .perfil-datos {
     gap: 14px;
+  }
+}
+
+/* Pista de ayuda (ícono de info + globo) --------------------------------- */
+
+/* El globo se monta en un portal al body y se ubica por coordenadas fijas:
+   `.app` y `.contenido` llevan `overflow: hidden`, así que un absolute dentro
+   de la fila de miembro quedaba recortado o empujaba scroll horizontal. */
+.pista-boton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--tinta-3);
+  cursor: help;
+  transition: color 0.15s, background 0.15s;
+}
+
+.pista-boton:hover,
+.pista-boton:focus-visible,
+.pista-boton[data-abierto='true'] {
+  color: var(--acento);
+  background: var(--superficie-2);
+}
+
+.pista-boton:focus-visible {
+  outline: 1px solid var(--acento);
+  outline-offset: 1px;
+}
+
+.pista-globo {
+  position: fixed;
+  z-index: 70;
+  max-width: calc(100vw - 16px);
+  padding: 8px 10px;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 10px;
+  background: var(--superficie);
+  box-shadow: var(--tarjeta-sombra-alta);
+  color: var(--tinta-2);
+  font-size: 11.5px;
+  line-height: 1.45;
+  /* El globo es informativo: no debe robar el puntero al control de al lado. */
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pista-boton {
+    transition: none;
   }
 }

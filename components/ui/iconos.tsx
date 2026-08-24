@@ -166,3 +166,49 @@ export const IconoCheck = (p: Props) => (
     <path d="M2.8 7.4l2.8 2.8 5.6-6" />
   </Svg>
 )
+
+/* Acciones de fila del catálogo. Mismo viewBox y trazo que el resto: las tres
+   se ven juntas en una fila de 28px y cualquier diferencia de grosor se lee
+   como que una está deshabilitada cuando no lo está. */
+
+export const IconoLapiz = (p: Props) => (
+  <Svg {...p}>
+    <path d="M9.4 1.9l2.7 2.7-6.6 6.6-3.2.5.5-3.2z" />
+    <path d="M8.1 3.2l2.7 2.7" />
+  </Svg>
+)
+
+export const IconoPapelera = (p: Props) => (
+  <Svg {...p}>
+    <path d="M2.2 3.9h9.6" />
+    <path d="M5.4 3.9V2.6a.7.7 0 0 1 .7-.7h1.8a.7.7 0 0 1 .7.7v1.3" />
+    <path d="M3.5 3.9l.5 7.2a1 1 0 0 0 1 .9h4a1 1 0 0 0 1-.9l.5-7.2" />
+    <path d="M5.9 6.1v3.6M8.1 6.1v3.6" />
+  </Svg>
+)
+
+/** Caja con tapa: archivar. Se distingue de la papelera por la banda superior. */
+export const IconoArchivar = (p: Props) => (
+  <Svg {...p}>
+    <rect x="1.7" y="2.1" width="10.6" height="2.8" rx=".8" />
+    <path d="M2.8 4.9v6a1 1 0 0 0 1 1h6.4a1 1 0 0 0 1-1v-6" />
+    <path d="M5.6 7.4h2.8" />
+  </Svg>
+)
+
+/** Flecha saliendo de la caja: desarchivar. */
+export const IconoDesarchivar = (p: Props) => (
+  <Svg {...p}>
+    <rect x="1.7" y="6.4" width="10.6" height="5.7" rx="1" />
+    <path d="M7 4.6V1.4M5.2 3.2L7 1.4l1.8 1.8" />
+  </Svg>
+)
+
+/** Círculo con una `i`: abre la explicación de un campo. */
+export const IconoInfo = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="7" cy="7" r="5.4" />
+    <path d="M7 6.3v3.4" />
+    <path d="M7 4.35v.1" />
+  </Svg>
+)
