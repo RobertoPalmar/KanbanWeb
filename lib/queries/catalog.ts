@@ -1,14 +1,60 @@
 /**
  * Catálogos de configuración: tipos, labels, prioridades, miembros y settings.
  *
- * Todo esto se archiva, nunca se borra. Borrar un tipo con tickets históricos
- * rompería los reportes.
+ * Archivar es el camino normal. Borrar existe solo donde no destruye historia:
+ * un tipo SIN ningún ticket (con tickets, `issues.type_id` es `on delete
+ * restrict` y la base lo rechaza) y una etiqueta cualquiera (`issue_labels`
+ * cascadea, así que no deja referencias colgando). Ver app/actions/catalogo.ts.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 type Client = SupabaseClient<Database>
+
+/**
+ * Cuántos tickets usa cada tipo, por id.
+ *
+ * Lo necesita Ajustes para decidir qué ofrece cada fila: con 0 tickets el tipo
+ * se puede borrar, con 1 o más solo archivar, porque `issues.type_id` es
+ * `on delete restrict`. Mostrar el conteo además le dice al admin POR QUÉ no
+ * puede borrar, que es la mitad de la información útil.
+ *
+ * Se trae la columna cruda y se agrupa en JS en vez de un count por tipo: son
+ * ocho tipos, y ocho consultas con `head: true` cuestan más que una. Si la
+ * tabla de tickets creciera a decenas de miles conviene una vista agregada.
+ */
+export async function getIssueTypeTicketCounts(
+  supabase: Client,
+): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('issues').select('type_id')
+  if (error) throw error
+
+  const conteo: Record<string, number> = {}
+  for (const fila of data ?? []) {
+    if (fila.type_id) conteo[fila.type_id] = (conteo[fila.type_id] ?? 0) + 1
+  }
+  return conteo
+}
+
+/**
+ * En cuántos tickets está puesta cada etiqueta, por id.
+ *
+ * Acá el conteo NO condiciona el borrado —la cascada siempre lo permite— sino
+ * lo que hay que advertir antes: cuántos tickets van a perder la etiqueta.
+ */
+export async function getLabelUsageCounts(
+  supabase: Client,
+): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('issue_labels').select('label_id')
+  if (error) throw error
+
+  const conteo: Record<string, number> = {}
+  for (const fila of data ?? []) {
+    conteo[fila.label_id] = (conteo[fila.label_id] ?? 0) + 1
+  }
+  return conteo
+}
 
 /** `includeArchived` solo tiene sentido en la pantalla de Configuración. */
 export async function getIssueTypes(supabase: Client, includeArchived = false) {
