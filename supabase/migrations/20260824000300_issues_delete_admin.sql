@@ -1,4 +1,18 @@
 -- =============================================================================
+-- SUPERADA por 20260824000400_issues_soft_delete.sql
+--
+-- La politica issues_delete_admin que crea este archivo fue REVOCADA por esa
+-- migracion posterior: al pasar a soft-delete, borrar dejo de ser un DELETE y
+-- dejar la politica puesta era una puerta al problema que el soft-delete existe
+-- para evitar (un admin destruyendo el historico desde la consola creyendo que
+-- replica la papelera de la UI). Hoy no hay ninguna politica FOR DELETE sobre
+-- issues.
+--
+-- Se conserva por historial. NO reejecutar sola: dejaria la base en un estado
+-- que la 000400 ya descarto.
+-- =============================================================================
+
+-- =============================================================================
 -- Borrado de tickets · política DELETE explícita
 --
 -- NO CAMBIA NINGÚN PERMISO. Es una migración de intención, y por eso vale la
