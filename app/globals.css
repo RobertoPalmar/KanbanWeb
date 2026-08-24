@@ -1979,11 +1979,18 @@ textarea.campo {
 
 /* Portada -------------------------------------------------------------- */
 
+/* El degradado va en el contenedor de pantalla, no en la caja: la caja tiene
+   que seguir siendo la superficie plana y legible que se apoya encima.
+   `--entrada-fondo` está definido para los dos temas en tokens.css.
+   El degradado se pinta con `background-attachment` por defecto (scroll): con
+   `fixed` iOS Safari lo repinta en cada frame de scroll, y acá no hace falta
+   porque el contenedor ya cubre toda la pantalla. */
 .portada {
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: 24px;
+  background: var(--entrada-fondo);
 }
 
 .portada-caja {
@@ -1993,10 +2000,12 @@ textarea.campo {
   flex-direction: column;
   gap: 14px;
   padding: 28px;
-  border: 1px solid var(--linea);
+  /* Borde y sombra propios (no `--linea` / `--tarjeta-sombra`): sobre un fondo
+     teñido el borde de tabla se disuelve y la caja queda flotando sin apoyo. */
+  border: 1px solid var(--entrada-caja-borde);
   border-radius: 16px;
   background: var(--superficie);
-  box-shadow: var(--tarjeta-sombra);
+  box-shadow: var(--entrada-caja-sombra);
 }
 
 .portada-titulo {
@@ -2055,11 +2064,16 @@ textarea.campo {
 
 /* Login ---------------------------------------------------------------- */
 
+/* Mismo degradado que la portada: login, registro y bienvenida son la misma
+   secuencia de entrada y un corte de fondo entre "Entrar" y el formulario se
+   lee como haber salido del producto. Las pantallas internas de la app quedan
+   fuera a propósito: ahí el fondo tiene que ser plano. */
 .login {
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: 24px;
+  background: var(--entrada-fondo);
 }
 
 .login-caja {
@@ -2069,10 +2083,10 @@ textarea.campo {
   flex-direction: column;
   gap: 14px;
   padding: 26px;
-  border: 1px solid var(--linea);
+  border: 1px solid var(--entrada-caja-borde);
   border-radius: 16px;
   background: var(--superficie);
-  box-shadow: var(--tarjeta-sombra);
+  box-shadow: var(--entrada-caja-sombra);
 }
 
 .error-caja {

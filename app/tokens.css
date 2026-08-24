@@ -58,6 +58,46 @@
   --tarjeta-sombra: 0 1px 2px rgba(16, 20, 28, 0.08);
   --tarjeta-sombra-alta: 0 4px 12px rgba(16, 20, 28, 0.14);
   --sombra-panel: -1px 0 0 0 #c9ccd2;
+
+  /* Degradado de entrada (portada, login, registro, bienvenida).
+     ------------------------------------------------------------------
+     Solo lo usan las pantallas ANTES de entrar a la app. Las pantallas
+     internas siguen sobre `--lienzo` plano: ahí el fondo compite con datos.
+
+     Los tres tonos NO son una gama nueva. Salen de la identidad que ya existe:
+       · #0a73e8  = --acento (azul de marca del tema claro)
+       · #6366E8  = "Índigo" de PALETA_CATALOGO (lib/paleta.ts)
+       · #0D8B8B  = "Teal" de PALETA_CATALOGO
+     Una malla de radiales muy tenues sobre --lienzo, no un lavado de color:
+     las paradas máximas están al 9 % y el color muere antes del 60 % del radio,
+     así que la zona donde cae la tarjeta queda casi neutra y el blanco de
+     --superficie sigue leyéndose como blanco. */
+  --entrada-fondo: radial-gradient(
+      ellipse 90% 62% at 12% 0%,
+      rgba(10, 115, 232, 0.09),
+      rgba(10, 115, 232, 0) 58%
+    ),
+    radial-gradient(
+      ellipse 76% 58% at 88% 6%,
+      rgba(99, 102, 232, 0.08),
+      rgba(99, 102, 232, 0) 56%
+    ),
+    radial-gradient(
+      ellipse 96% 54% at 50% 106%,
+      rgba(13, 139, 139, 0.07),
+      rgba(13, 139, 139, 0) 60%
+    ),
+    linear-gradient(180deg, #fdfefe 0%, var(--lienzo) 46%, #e4e9f0 100%);
+
+  /* La caja necesita un borde y una sombra propios sobre el degradado: el
+     --linea de tabla (#e2e4e8) se disuelve contra un fondo teñido.
+     Los alfas están elegidos midiendo, no a ojo: con 0.10 el borde quedaba a
+     1.02:1 contra la zona más teñida del fondo, o sea invisible justo donde
+     más hace falta. Con 0.18 da 1.47:1 contra la caja y 1.20:1 contra el
+     fondo, que es el mínimo para que el canto se lea en todo el recorrido. */
+  --entrada-caja-borde: rgba(16, 20, 28, 0.18);
+  --entrada-caja-sombra: 0 1px 2px rgba(16, 20, 28, 0.05),
+    0 10px 28px -12px rgba(12, 42, 88, 0.18);
 }
 
 /* ---------------------------------------------------------------------------
@@ -101,6 +141,85 @@
   --tarjeta-sombra: 0 1px 2px rgba(0, 0, 0, 0.4);
   --tarjeta-sombra-alta: 0 6px 18px rgba(0, 0, 0, 0.55);
   --sombra-panel: -1px 0 0 0 #3a4048;
+
+  /* En oscuro el degradado NO es el de claro invertido: bajar la luminosidad de
+     los mismos rgba deja un gris azulado sucio, porque el color va sobre un
+     lienzo casi negro (#0e1013) y el ojo lee la mezcla como suciedad, no como
+     tinte. Acá el color se pone como LUZ, no como velo: paradas más saturadas
+     (12-14 %) y radios más chicos, de modo que se leen como dos focos de color
+     sobre negro y el resto del lienzo se queda negro de verdad.
+
+     Tonos, otra vez de la identidad ya existente:
+       · #4d9dff  = --acento del tema oscuro
+       · #b48cff  = --e2-fg del tema oscuro (violeta de "por hacer")
+       · #0D8B8B  = "Teal" de PALETA_CATALOGO, el mismo hex que en claro */
+  --entrada-fondo: radial-gradient(
+      ellipse 82% 58% at 10% 0%,
+      rgba(77, 157, 255, 0.14),
+      rgba(77, 157, 255, 0) 55%
+    ),
+    radial-gradient(
+      ellipse 70% 52% at 92% 4%,
+      rgba(180, 140, 255, 0.12),
+      rgba(180, 140, 255, 0) 52%
+    ),
+    radial-gradient(
+      ellipse 90% 44% at 46% 112%,
+      rgba(13, 139, 139, 0.06),
+      rgba(13, 139, 139, 0) 58%
+    ),
+    linear-gradient(180deg, #12151b 0%, var(--lienzo) 55%, #07080a 100%);
+
+  /* Sobre un fondo con focos de luz, la caja se pierde si solo tiene sombra:
+     el borde claro es lo que la separa. El alfa es 0.34 y no 0.16 por medición:
+     con 0.16 el borde caía a 1.11:1 contra el foco azul de la esquina, o sea
+     que la caja se desvanecía exactamente donde el degradado es más luminoso.
+     Con 0.34 queda 1.93:1 contra la caja y 1.33:1 contra el foco.
+     El teal del pie bajó de 0.12 a 0.06 por lo mismo: al 12 % el fondo
+     inferior quedaba a 1.01:1 de --superficie y el canto inferior de la caja
+     desaparecía. */
+  --entrada-caja-borde: rgba(150, 165, 190, 0.34);
+  --entrada-caja-sombra: 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 14px 34px -14px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------------------------------------------------------------------------
+ * Tercer estado: sin preferencia guardada, siguiendo al sistema
+ *
+ * `app/layout.tsx` resuelve el tema en el servidor y siempre escribe
+ * `data-tema`, con 'claro' como valor por defecto cuando no hay sesión. Este
+ * bloque es la red de seguridad para ese default: si el sistema de quien mira
+ * está en oscuro y todavía no eligió tema en la app, el degradado de entrada
+ * no le arde en la cara. Va guardado con `:not([data-tema='claro'])` para que
+ * una elección explícita de tema claro siga ganando sobre el sistema.
+ *
+ * Solo redefine los tokens del degradado: el resto de la paleta sigue mandado
+ * por `data-tema`, que es la fuente de verdad del proyecto.
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']):not([data-tema='oscuro']) {
+    --entrada-fondo: radial-gradient(
+        ellipse 82% 58% at 10% 0%,
+        rgba(77, 157, 255, 0.14),
+        rgba(77, 157, 255, 0) 55%
+      ),
+      radial-gradient(
+        ellipse 70% 52% at 92% 4%,
+        rgba(180, 140, 255, 0.12),
+        rgba(180, 140, 255, 0) 52%
+      ),
+      radial-gradient(
+        ellipse 90% 44% at 46% 112%,
+        rgba(13, 139, 139, 0.06),
+        rgba(13, 139, 139, 0) 58%
+      ),
+      linear-gradient(180deg, #12151b 0%, var(--lienzo) 55%, #07080a 100%);
+
+    --entrada-caja-borde: rgba(150, 165, 190, 0.34);
+    --entrada-caja-sombra: 0 1px 2px rgba(0, 0, 0, 0.5),
+      0 14px 34px -14px rgba(0, 0, 0, 0.7);
+  }
 }
 
 /* ---------------------------------------------------------------------------
