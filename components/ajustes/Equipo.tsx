@@ -15,6 +15,7 @@ import { fechaCorta, plural } from '@/lib/format'
 import type { Role } from '@/lib/permissions'
 import { Avatar } from '@/components/ui/piezas'
 import { IconoCerrar } from '@/components/ui/iconos'
+import { Pista } from '@/components/ui/Pista'
 import { useGuardado } from '@/components/ui/ContextoGuardado'
 
 export interface Miembro {
@@ -135,11 +136,20 @@ export function Equipo({
             </span>
 
             <div className="fila-ajuste-controles">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span className="mono-xs" style={{ color: 'var(--tinta-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <label className="mono-xs" htmlFor={`cap-${m.id}`} style={{ color: 'var(--tinta-3)' }}>
                   cap
-                </span>
+                </label>
+                <Pista
+                  etiqueta="la capacidad"
+                  respaldo="Puntos de trabajo que puede llevar a la vez. Ocho puntos ≈ una semana."
+                >
+                  Capacidad: los puntos de trabajo que la persona puede llevar a la vez. Ocho
+                  puntos son más o menos una semana de trabajo. Es el tope de su barra en
+                  «Carga del equipo» del panel, y ahí solo cuenta lo que está en curso.
+                </Pista>
                 <input
+                  id={`cap-${m.id}`}
                   type="number"
                   min={1}
                   max={200}
@@ -152,7 +162,7 @@ export function Equipo({
                     if (v !== m.capacity) correr(() => cambiarCapacidad(m.id, v))
                   }}
                 />
-              </label>
+              </div>
 
               <div className="segmentado" role="group" aria-label={`Rol de ${m.name}`}>
                 {ROLES.map((r) => (
