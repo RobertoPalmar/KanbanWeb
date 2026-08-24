@@ -7,6 +7,7 @@ import {
   cambiarAcceso,
   cambiarCapacidad,
   cambiarRol,
+  eliminarUsuario,
   invitar,
   reenviarInvitacion,
   revocarInvitacion,
@@ -16,6 +17,7 @@ import { fechaCorta, plural } from '@/lib/format'
 import type { Role } from '@/lib/permissions'
 import { Avatar } from '@/components/ui/piezas'
 import { IconoCerrar } from '@/components/ui/iconos'
+import { MiniModal } from '@/components/ui/MiniModal'
 import { Pista } from '@/components/ui/Pista'
 import { useGuardado } from '@/components/ui/ContextoGuardado'
 
@@ -82,6 +84,22 @@ export function Equipo({
   // menor privilegio que igual puede trabajar. Que el default sea el inocuo.
   const [rolInvitado, setRolInvitado] = useState<Role>('member')
 
+  /** Persona con la confirmación de borrado abierta, o null. */
+  const [eliminando, setEliminando] = useState<Miembro | null>(null)
+  /**
+   * Por qué no se pudo eliminar, cuando la base lo rechaza.
+   *
+   * El motivo llega DESPUÉS de intentarlo: saber si alguien dejó rastro exige
+   * contar tickets, comentarios y adjuntos, y hacerlo al pintar la lista sería
+   * una consulta por fila que además quedaría desactualizada. Así que el
+   * diálogo pregunta, y si la base dice que no, el mismo diálogo se convierte
+   * en la explicación.
+   */
+  const [rechazo, setRechazo] = useState<{
+    mensaje: string
+    historial?: { issues: number; comentarios: number; adjuntos: number }
+  } | null>(null)
+
   const activos = miembros.filter((m) => m.active)
   const bloqueados = miembros.filter((m) => !m.active)
   const pendientes = invitaciones.filter((i) => !i.accepted_at)
@@ -96,6 +114,33 @@ export function Equipo({
     void guardar(accion, etiqueta).then((ok) => {
       if (ok) router.refresh()
     })
+  }
+
+  /**
+   * Eliminar no pasa por `correr` porque su rechazo no es un error: que alguien
+   * tenga historial es la respuesta correcta y esperable, y mandarla al
+   * indicador global la mostraría como si algo hubiera fallado. Se queda en el
+   * diálogo, que es donde el admin está mirando.
+   */
+  async function eliminar(m: Miembro) {
+    const res = await eliminarUsuario(m.id)
+
+    if (res.ok) {
+      setEliminando(null)
+      setRechazo(null)
+      router.refresh()
+      return
+    }
+
+    setRechazo({
+      mensaje: res.error,
+      historial: 'historial' in res ? res.historial : undefined,
+    })
+  }
+
+  function cerrarEliminar() {
+    setEliminando(null)
+    setRechazo(null)
   }
 
   return (
@@ -216,6 +261,28 @@ export function Equipo({
               >
                 {m.active ? 'Quitar acceso' : 'Reactivar'}
               </button>
+
+              {/*
+                Eliminar aparece solo sobre alguien ya desactivado: es la
+                continuación de quitar el acceso, no una alternativa. Ponerlo
+                junto a "Quitar acceso" en una fila activa invitaría a elegir el
+                camino irreversible cuando el reversible alcanza.
+              */}
+              {!m.active && (
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  style={{ height: 26, color: 'var(--alerta)', borderColor: 'var(--alerta)' }}
+                  disabled={pendiente || m.id === yoId}
+                  title="Solo si no dejó tickets ni comentarios"
+                  onClick={() => {
+                    setRechazo(null)
+                    setEliminando(m)
+                  }}
+                >
+                  Eliminar
+                </button>
+              )}
 
               <Link
                 className="btn-secundario"
@@ -360,6 +427,107 @@ export function Equipo({
           que tengas que promoverlo después. Revocar una invitación pendiente invalida su enlace.
         </p>
       </section>
+
+      {eliminando && (
+        <MiniModal
+          titulo={
+            rechazo ? `No se puede eliminar a ${eliminando.name}` : `¿Eliminar a ${eliminando.name}?`
+          }
+          descripcion={
+            rechazo
+              ? rechazo.mensaje
+              : 'Se borra la cuenta y no se puede deshacer. Solo funciona si la persona no dejó tickets, comentarios ni adjuntos: si dejó algo, te lo vamos a decir y no se elimina nada.'
+          }
+          onCerrar={cerrarEliminar}
+          pie={
+            rechazo ? (
+              <span style={{ marginLeft: 'auto' }}>
+                <button type="button" className="btn-primario" onClick={cerrarEliminar}>
+                  Entendido
+                </button>
+              </span>
+            ) : (
+              <PieBorrado
+                puedeConfirmar={!pendiente}
+                onCancelar={cerrarEliminar}
+                onConfirmar={() => void eliminar(eliminando)}
+              />
+            )
+          }
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              background: 'var(--lienzo)',
+              borderRadius: 'var(--radio-campo, 10px)',
+            }}
+          >
+            <Avatar persona={eliminando} size={32} />
+            <span style={{ display: 'grid', gap: 1 }}>
+              <span style={{ fontSize: 12.5 }}>{eliminando.name}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--tinta-2)' }}>{eliminando.email}</span>
+            </span>
+          </div>
+
+          {/*
+            Los números concretos, no "tiene historial": lo que decide si el
+            admin insiste por otra vía o deja las cosas como están es saber si
+            son dos comentarios o cuarenta tickets.
+          */}
+          {rechazo?.historial && (
+            <ul
+              style={{
+                margin: '10px 0 0',
+                paddingLeft: 18,
+                fontSize: 12,
+                color: 'var(--tinta-2)',
+                display: 'grid',
+                gap: 2,
+              }}
+            >
+              {rechazo.historial.issues > 0 && (
+                <li>{plural(rechazo.historial.issues, 'ticket', 'tickets')}</li>
+              )}
+              {rechazo.historial.comentarios > 0 && (
+                <li>{plural(rechazo.historial.comentarios, 'comentario', 'comentarios')}</li>
+              )}
+              {rechazo.historial.adjuntos > 0 && (
+                <li>{plural(rechazo.historial.adjuntos, 'adjunto', 'adjuntos')}</li>
+              )}
+            </ul>
+          )}
+        </MiniModal>
+      )}
     </>
+  )
+}
+
+/** Pie del diálogo de eliminación. Mismo orden que los del catálogo. */
+function PieBorrado({
+  onConfirmar,
+  onCancelar,
+  puedeConfirmar,
+}: {
+  onConfirmar: () => void
+  onCancelar: () => void
+  puedeConfirmar: boolean
+}) {
+  return (
+    <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+      <button type="button" className="btn-secundario" onClick={onCancelar}>
+        Cancelar
+      </button>
+      <button
+        type="button"
+        className="btn-primario btn-primario-peligro"
+        disabled={!puedeConfirmar}
+        onClick={onConfirmar}
+      >
+        Sí, eliminar
+      </button>
+    </span>
   )
 }
