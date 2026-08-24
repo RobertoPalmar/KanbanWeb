@@ -73,6 +73,77 @@ export async function cambiarAcceso(userId: string, activo: boolean) {
   return { ok: true as const }
 }
 
+/**
+ * Elimina definitivamente a una persona ya desactivada.
+ *
+ * Solo si no dejó rastro: ni tickets, ni comentarios, ni adjuntos. Es el caso de
+ * una invitación aceptada por error o de alguien que se fue la primera semana, y
+ * sin esto esas filas se acumulan en la lista del equipo para siempre.
+ *
+ * Quien SÍ dejó trabajo registrado se queda desactivado, que es lo correcto:
+ * borrarlo dejaría sus tickets y comentarios sin autor, y los reportes de meses
+ * anteriores cambiarían hacia atrás.
+ *
+ * La decisión la toma la base, no este archivo: `eliminar_usuario_sin_rastro`
+ * cuenta y borra en la misma transacción con FOR UPDATE. Comprobarlo acá dejaría
+ * una ventana para que entre un ticket entre el conteo y el borrado.
+ */
+export async function eliminarUsuario(userId: string) {
+  const sesion = await requireAdmin()
+  if (!sesion) return { ok: false as const, error: 'Solo un admin elimina usuarios.' }
+
+  if (userId === sesion.actor.id) {
+    return { ok: false as const, error: 'No podés eliminarte a vos mismo.' }
+  }
+
+  // Service role: el borrado toca `auth.users`, fuera del alcance de RLS.
+  const admin = createServiceClient()
+
+  const { data, error } = await admin.rpc('eliminar_usuario_sin_rastro', {
+    p_user_id: userId,
+  })
+
+  if (error) {
+    console.error('[eliminarUsuario] La RPC falló:', {
+      userId,
+      code: error.code,
+      mensaje: error.message,
+    })
+    return { ok: false as const, error: traducir(error.message) }
+  }
+
+  const resultado = data as {
+    ok: boolean
+    motivo?: string
+    mensaje?: string
+    issues?: number
+    comentarios?: number
+    adjuntos?: number
+    nombre?: string
+  }
+
+  if (!resultado.ok) {
+    return {
+      ok: false as const,
+      error: resultado.mensaje ?? 'No se pudo eliminar a esta persona.',
+      motivo: resultado.motivo,
+      // Para que la UI pueda decir "3 tickets y 2 comentarios" en vez de
+      // "tiene historial", que no le dice al admin qué se perdería.
+      historial:
+        resultado.motivo === 'tiene_historial'
+          ? {
+              issues: resultado.issues ?? 0,
+              comentarios: resultado.comentarios ?? 0,
+              adjuntos: resultado.adjuntos ?? 0,
+            }
+          : undefined,
+    }
+  }
+
+  revalidatePath('/', 'layout')
+  return { ok: true as const, nombre: resultado.nombre }
+}
+
 export async function cambiarCapacidad(userId: string, capacidad: number) {
   const sesion = await requireAdmin()
   if (!sesion) return { ok: false as const, error: 'Solo un admin cambia la capacidad.' }

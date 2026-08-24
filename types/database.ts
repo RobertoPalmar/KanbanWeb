@@ -1052,6 +1052,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      eliminar_usuario_sin_rastro: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       import_issues: {
         Args: { p_rows: Json }
         Returns: Json
