@@ -53,9 +53,21 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code && !tokenHash) {
+    /*
+     * Acá no se puede saber POR QUÉ no vino el token.
+     *
+     * Cuando el enlace está vencido o ya se usó, Supabase manda el motivo en el
+     * FRAGMENTO de la URL (`#error=access_denied&error_code=otp_expired`), y el
+     * navegador nunca envía el fragmento al servidor. Desde el servidor un
+     * enlace vencido es indistinguible de uno malformado.
+     *
+     * Por eso el mensaje no afirma cuál de los dos fue: el componente de login
+     * lee el fragmento en el cliente y, si trae un motivo, lo reemplaza por uno
+     * exacto. Este texto es solo el respaldo para cuando no hay fragmento.
+     */
     return NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent(
-        'El enlace del correo no trae el token. Pedile a quien administra el tablero que te reenvíe la invitación.',
+        'No se pudo validar el enlace del correo. Si ya creaste tu contraseña, entrá con ella; si no, pedí que te reenvíen la invitación.',
       )}`,
     )
   }

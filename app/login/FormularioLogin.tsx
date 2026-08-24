@@ -1,9 +1,65 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Spinner } from '@/components/ui/Spinner'
 import { entrar, type EstadoLogin } from './actions'
+
+/**
+ * Traduce los códigos de error que Supabase manda en el fragmento de la URL.
+ *
+ * Son los mismos que documenta Supabase Auth; acá solo se les pone un texto que
+ * diga qué hacer, en lugar de "Email link is invalid or has expired".
+ */
+function mensajeDeError(code: string | null, description: string | null): string {
+  switch (code) {
+    case 'otp_expired':
+      return 'El enlace del correo ya venció o se usó. Si ya creaste tu contraseña, entrá con ella; si no, pedí que te reenvíen la invitación.'
+    case 'access_denied':
+      return 'El enlace no es válido. Pedí que te reenvíen la invitación.'
+    default:
+      return (
+        description ??
+        'No se pudo validar el enlace del correo. Pedí que te reenvíen la invitación.'
+      )
+  }
+}
+
+/**
+ * Lee el error que Supabase deja en el FRAGMENTO de la URL (`#error=...`).
+ *
+ * Es la parte que el navegador NO manda al servidor, así que `/auth/callback`
+ * no puede verla: desde el servidor un enlace vencido es indistinguible de uno
+ * sin token, y termina mostrando "el enlace no trae el token" cuando en
+ * realidad lo traía y estaba vencido.
+ *
+ * El fragmento se limpia de la barra de direcciones después de leerlo, para que
+ * recargar no reviva un error ya resuelto.
+ */
+function useErrorDelFragmento(): string | undefined {
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash || hash.length < 2) return
+
+    const params = new URLSearchParams(hash.slice(1))
+    const code = params.get('error_code')
+    const description = params.get('error_description')
+
+    if (!params.get('error') && !code) return
+
+    setError(mensajeDeError(code, description?.replace(/\+/g, ' ') ?? null))
+
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname + window.location.search,
+    )
+  }, [])
+
+  return error
+}
 
 /**
  * `avisoInicial` es el mensaje que trae `/auth/callback` en la URL cuando un
@@ -12,7 +68,12 @@ import { entrar, type EstadoLogin } from './actions'
  */
 export function FormularioLogin({ avisoInicial }: { avisoInicial?: string }) {
   const [estado, accion, pendiente] = useActionState<EstadoLogin, FormData>(entrar, {})
-  const mensaje = estado.error ?? avisoInicial
+  const errorFragmento = useErrorDelFragmento()
+
+  // El del fragmento gana sobre `avisoInicial`: cuando los dos están presentes,
+  // el genérico del servidor ("no trae el token") es justamente el que no sabe
+  // lo que pasó.
+  const mensaje = estado.error ?? errorFragmento ?? avisoInicial
 
   return (
     <form action={accion} className="login-caja">
