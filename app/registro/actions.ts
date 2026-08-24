@@ -5,15 +5,21 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 /**
- * Registro propio.
+ * Auto-registro.
+ *
+ * Es una puerta distinta de la invitación y sigue existiendo: alguien con la URL
+ * se da de alta solo, sin que un admin haga nada. Las invitaciones por correo NO
+ * pasan por acá —esas caen en `/auth/callback` y después en `/bienvenida`—.
  *
  * El rol NO viaja en el formulario ni en el metadata: lo decide el trigger
  * `handle_new_auth_user` en la base (primer usuario admin, el resto member). Si
  * el rol se pudiera pedir desde acá, cualquiera se registraría como admin.
  *
- * `REGISTRO_CODIGO` es un código compartido opcional. La herramienta es interna,
- * y sin código cualquiera con la URL entra al tablero del equipo: si la variable
- * está definida, el formulario lo exige.
+ * `REGISTRO_CODIGO` es el código compartido del despliegue, y `REGISTRO_DOMINIO`
+ * el dominio permitido. Las dos siguen vigentes: son la cerradura del
+ * auto-registro, no del flujo de invitaciones. El código de invitación personal
+ * —que se validaba acá contra `invitation_valida`— sí desapareció: ahora la
+ * invitación llega por correo y no se tipea en ningún formulario.
  */
 
 export interface EstadoRegistro {
@@ -54,31 +60,20 @@ export async function registrarse(
 
   const supabase = await createClient()
 
-  // El código puede ser el compartido del equipo (REGISTRO_CODIGO) o una
-  // invitación personal emitida por un admin para este correo. Cualquiera de los
-  // dos habilita el alta; ninguno otorga rol.
+  // El código compartido del despliegue. Ya no hay códigos de invitación
+  // personales que aceptar acá: quien fue invitado entra por el enlace del
+  // correo, no por este formulario.
   const esperado = process.env.REGISTRO_CODIGO
-  let porInvitacion = false
 
-  if (codigo) {
-    const { data: valida } = await supabase.rpc('invitation_valida', {
-      p_email: email,
-      p_code: codigo,
-    })
-    porInvitacion = valida === true
-  }
-
-  if (esperado && !porInvitacion && codigo !== esperado) {
+  if (esperado && codigo !== esperado) {
     return {
       error:
-        'El código no es correcto, o la invitación no corresponde a este correo. Pedile uno nuevo a quien administra el tablero.',
+        'El código de acceso no es correcto. Pedíselo a quien administra el tablero, o pedile que te invite por correo.',
     }
   }
 
-  // El dominio solo se exige a quien entra por el código compartido: una
-  // invitación personal es una decisión explícita del admin sobre ese correo.
   const dominio = process.env.REGISTRO_DOMINIO
-  if (dominio && !porInvitacion && !email.endsWith(`@${dominio}`)) {
+  if (dominio && !email.endsWith(`@${dominio}`)) {
     return { error: `El registro está limitado a correos @${dominio}.` }
   }
 
@@ -93,12 +88,6 @@ export async function registrarse(
       return { error: 'Ese correo ya tiene cuenta. Entrá con tu contraseña o pedí un restablecimiento.' }
     }
     return { error: error.message }
-  }
-
-  // La invitación se marca usada recién ahora: si el signUp fallaba antes, el
-  // código tenía que seguir sirviendo.
-  if (porInvitacion) {
-    await supabase.rpc('invitation_aceptar', { p_email: email, p_code: codigo })
   }
 
   // Con confirmación de correo activada, signUp no devuelve sesión: la cuenta

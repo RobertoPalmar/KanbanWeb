@@ -33,6 +33,26 @@ export interface IssueFilters {
   includeDrafts?: boolean
 }
 
+/**
+ * Soft-delete: el filtro que TODA lectura de tickets tiene que aplicar.
+ *
+ * POR QUÉ UN HELPER Y NO `.is('deleted_at', null)` suelto en cada sitio. El
+ * filtro no se puede meter en ISSUE_SELECT —un select es la lista de columnas,
+ * no el WHERE— así que la alternativa era repetir la misma línea en una docena
+ * de consultas repartidas entre lib/queries, app/actions y los page.tsx. Una
+ * consulta que se olvide no falla: muestra tickets borrados, en silencio, hasta
+ * que alguien lo nota. Con el helper el olvido sigue siendo posible, pero ahora
+ * hay UN nombre para buscar (`soloVivos`) y el grep dice de una qué consultas
+ * están cubiertas y cuáles no.
+ *
+ * No se envuelve en un wrapper de `from('issues')` porque los tipos generados de
+ * PostgREST se pierden en cuanto se pasa el nombre de la tabla por variable, y
+ * perder el tipado del select es un precio más alto que un `.is()` explícito.
+ */
+export function soloVivos<T extends { is(col: 'deleted_at', val: null): T }>(q: T): T {
+  return q.is('deleted_at', null)
+}
+
 const ISSUE_SELECT = `
   id, number, title, description, state, weight, due_date,
   created_at, updated_at, imported, owner_id, created_by, type_id, priority_id,
@@ -45,7 +65,7 @@ const ISSUE_SELECT = `
 ` as const
 
 export async function listIssues(supabase: Client, filters: IssueFilters = {}) {
-  let q = supabase.from('issues').select(ISSUE_SELECT)
+  let q = soloVivos(supabase.from('issues').select(ISSUE_SELECT))
 
   if (filters.state?.length) {
     q = q.in('state', filters.state)
@@ -68,11 +88,9 @@ export async function listIssues(supabase: Client, filters: IssueFilters = {}) {
 }
 
 export async function getIssue(supabase: Client, id: string) {
-  const { data, error } = await supabase
-    .from('issues')
-    .select(ISSUE_SELECT)
-    .eq('id', id)
-    .single()
+  const { data, error } = await soloVivos(
+    supabase.from('issues').select(ISSUE_SELECT).eq('id', id),
+  ).single()
   if (error) throw error
   return data
 }
@@ -203,10 +221,11 @@ export async function updateIssue(
   if (input.dueDate !== undefined) patch.due_date = input.dueDate
   if (input.ownerId !== undefined) patch.owner_id = input.ownerId
 
-  const { data, error } = await supabase
-    .from('issues')
-    .update(patch)
-    .eq('id', issueId)
+  // `soloVivos` también en el UPDATE: un ticket borrado no se edita. Sin esto
+  // una pestaña abierta desde antes del borrado podría seguir guardando cambios.
+  const { data, error } = await soloVivos(
+    supabase.from('issues').update(patch).eq('id', issueId),
+  )
     .select('id')
     .single()
 

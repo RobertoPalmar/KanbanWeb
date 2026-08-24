@@ -84,6 +84,66 @@ export async function comentar(issueId: string, body: string) {
   }
 }
 
+/**
+ * Borra un ticket. SOFT-DELETE: fija `issues.deleted_at`.
+ *
+ * POR QUÉ NO ES UN DELETE. El `issue_activity` del ticket cascadearía, y ese
+ * log es la FUENTE de `issue_timings`, `issue_cycle_times`,
+ * `weekly_cycle_time` y `aging_wip`. Borrar de verdad un ticket ya cerrado le
+ * saca su cycle time al histórico y cambia series de semanas que ya se
+ * reportaron. Con soft-delete el ticket desaparece de todas las vistas de
+ * presente y su historia sigue contando en lo que ya pasó.
+ *
+ * SOLO ADMIN, y la comprobación es acá, en el servidor. Ocultar la papelera en
+ * el panel no protege nada: una Server Action es un endpoint HTTP que
+ * cualquiera con la sesión abierta puede invocar con el id que quiera. La
+ * segunda capa NO es una política RLS: `issues_update_owner` deja a un member
+ * actualizar sus propios tickets, así que una política no alcanzaría para
+ * frenar un `deleted_at` puesto a mano. Lo frena el trigger
+ * `issues_guard_soft_delete` (20260824000400). Este chequeo es la primera capa,
+ * y la que devuelve un mensaje legible en vez de un 42501 crudo.
+ *
+ * LOS ADJUNTOS SE QUEDAN. Antes se borraban del bucket acá, antes del DELETE,
+ * porque después de la cascada ya no había forma de saber qué rutas había. Con
+ * soft-delete no hay cascada: las filas de `attachments` siguen existiendo, y
+ * el ticket es recuperable. Borrar los archivos lo volvería recuperable a
+ * medias — un ticket restaurado con adjuntos roto es peor que no poder
+ * restaurarlo. Si algún día hace falta liberar disco, la purga es un trabajo
+ * aparte que recorre los tickets con `deleted_at` viejo y borra fila + archivo
+ * juntos.
+ */
+export async function eliminarTicket(issueId: string) {
+  const { actor } = await requireSesion()
+
+  if (actor.role !== 'admin') {
+    return {
+      ok: false as const,
+      error:
+        'Borrar un ticket es una acción de admin. Si el trabajo ya no aplica, cancelalo: conserva el historial.',
+    }
+  }
+
+  const supabase = await createClient()
+
+  // `.is('deleted_at', null)` en el WHERE: si dos admins hacen clic a la vez,
+  // el segundo UPDATE afecta cero filas en lugar de sobrescribir la marca de
+  // tiempo del primero.
+  const { data, error } = await supabase
+    .from('issues')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', issueId)
+    .is('deleted_at', null)
+    .select('id')
+
+  if (error) return { ok: false as const, error: error.message }
+  if (!data?.length) {
+    return { ok: false as const, error: 'El ticket ya no está disponible.' }
+  }
+
+  revalidarTodo()
+  return { ok: true as const }
+}
+
 /** Etiquetas de un ticket: se reemplaza el set completo. */
 export async function guardarEtiquetas(issueId: string, labelIds: string[]) {
   await requireSesion()

@@ -21,6 +21,13 @@ export interface ImportResult {
 
 /** external_id ya existentes: alimenta el conteo de "se actualizarán" del preview. */
 export async function getKnownExternalIds(supabase: Client): Promise<Set<string>> {
+  // A PROPÓSITO sin `soloVivos`: acá el conteo no se muestra, se usa para
+  // decidir insert vs update contra el UNIQUE de `external_id`. Un ticket
+  // borrado sigue ocupando su external_id en el índice, así que ignorarlo haría
+  // que el import intentara insertar un duplicado y fallara. Reimportar una fila
+  // cuyo ticket fue borrado lo ACTUALIZA — y lo revive solo si el import limpia
+  // `deleted_at`, que hoy no hace: queda borrado, que es lo correcto (el admin
+  // lo borró a propósito).
   const { data, error } = await supabase
     .from('issues')
     .select('external_id')

@@ -115,6 +115,12 @@ async function contarTickets(
   supabase: Awaited<ReturnType<typeof createClient>>,
   typeId: string,
 ): Promise<number | null> {
+  // A PROPÓSITO sin filtro de soft-delete. Este conteo no informa al usuario de
+  // cuánto trabajo hay: predice si la base va a DEJAR borrar el tipo, y esa
+  // decisión la toma la FK `issues.type_id on delete restrict`, que cuenta las
+  // filas — incluidas las que tienen `deleted_at`. Si acá se filtraran los
+  // borrados, la interfaz habilitaría la papelera de un tipo que la base va a
+  // rechazar igual, y el admin se comería un error de constraint.
   const { count, error } = await supabase
     .from('issues')
     .select('id', { count: 'exact', head: true })

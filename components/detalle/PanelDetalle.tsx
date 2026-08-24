@@ -8,16 +8,18 @@ import { allowedTargets, checkTransition, requiresComment } from '@/lib/transiti
 import {
   canAttach,
   canComment,
+  canDeleteIssue,
   canEditIssue,
   canManageSupporters,
   canMoveIssue,
   canReassignOwner,
 } from '@/lib/permissions'
 import { FIBONACCI_WEIGHTS } from '@/lib/queries/catalog'
-import { fechaCorta } from '@/lib/format'
+import { fechaCorta, fechaLarga, plural } from '@/lib/format'
 import {
   actualizarTicket,
   comentar,
+  eliminarTicket,
   guardarApoyos,
   guardarEtiquetas,
   moverEstado,
@@ -33,8 +35,10 @@ import {
   PillTipo,
   Vencimiento,
 } from '@/components/ui/piezas'
-import { IconoAbrir, IconoCerrar } from '@/components/ui/iconos'
+import { IconoAbrir, IconoCerrar, IconoLapiz, IconoPapelera } from '@/components/ui/iconos'
 import { Spinner } from '@/components/ui/Spinner'
+import { MiniModal } from '@/components/ui/MiniModal'
+import { ModalNuevoTicket } from '@/components/nuevo/ModalNuevoTicket'
 import { DialogoMotivo } from '@/components/tickets/DialogoMotivo'
 import { SelectorEnSitio } from './SelectorEnSitio'
 import { Actividad } from './Actividad'
@@ -73,6 +77,7 @@ export function PanelDetalle({
   const puedeMover = canMoveIssue(actor, ref)
   const puedeApoyos = canManageSupporters(actor, ref)
   const puedeReasignar = canReassignOwner(actor)
+  const puedeBorrar = canDeleteIssue(actor)
 
   const [editandoDescripcion, setEditandoDescripcion] = useState(false)
   const [descripcion, setDescripcion] = useState(ticket.description ?? '')
@@ -80,11 +85,19 @@ export function PanelDetalle({
   const [error, setError] = useState<string | null>(null)
   const [motivo, setMotivo] = useState<StateKey | null>(null)
   const [comentando, setComentando] = useState(false)
+  const [editandoTodo, setEditandoTodo] = useState(false)
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const titulo = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     setDescripcion(ticket.description ?? '')
     setEditandoDescripcion(false)
+    // El panel se reusa entre tickets sin desmontarse: sin esto, navegar de un
+    // ticket al siguiente con el diálogo de borrado abierto lo dejaría abierto
+    // apuntando al ticket nuevo.
+    setEditandoTodo(false)
+    setConfirmandoBorrado(false)
   }, [ticket.id, ticket.description])
 
   function cerrar() {
@@ -152,6 +165,51 @@ export function PanelDetalle({
     }
   }
 
+  async function borrar() {
+    if (borrando) return
+    setBorrando(true)
+    setError(null)
+
+    const res = await eliminarTicket(ticket.id)
+
+    if (!res.ok) {
+      setBorrando(false)
+      setConfirmandoBorrado(false)
+      setError(res.error)
+      return
+    }
+
+    // No se apaga `borrando` ni se cierra el diálogo: lo que sigue es irse de
+    // acá. Apagar el spinner antes de que la navegación ocurra mostraría el
+    // botón habilitado sobre un ticket ya borrado.
+    if (comoPagina) {
+      // `replace` y no `push`: el back del navegador no debe volver a
+      // /tickets/[id], que con el soft-delete aplicado ahora es un 404 —
+      // `getIssue` filtra los borrados.
+      router.replace('/tickets')
+    } else {
+      const q = new URLSearchParams(params.toString())
+      q.delete('ticket')
+      router.replace(`${pathname}?${q.toString()}`, { scroll: false })
+    }
+    router.refresh()
+  }
+
+  /**
+   * Lo que se GUARDA. Antes esta lista enumeraba lo que la cascada destruía
+   * —comentarios, adjuntos, historial— y era la razón de ser del diálogo. Con
+   * soft-delete no se destruye ninguna de las tres cosas, así que la lista
+   * cambia de signo: dice qué queda conservado, que es lo que vuelve honesto
+   * el "se puede deshacer".
+   */
+  const loQueSeConserva = [
+    detalle.comentarios.length > 0 &&
+      plural(detalle.comentarios.length, 'comentario', 'comentarios'),
+    detalle.adjuntos.length > 0 && plural(detalle.adjuntos.length, 'adjunto', 'adjuntos'),
+    detalle.eventos.length > 0 &&
+      `${plural(detalle.eventos.length, 'entrada', 'entradas')} de historial`,
+  ].filter((x): x is string => Boolean(x))
+
   const destinos = allowedTargets(ticket.state, {
     isAdmin: sesion.role === 'admin',
     isOwner: ticket.owner_id === sesion.id,
@@ -175,6 +233,36 @@ export function PanelDetalle({
               Abrir en página
             </Link>
           )}
+          {/* Lápiz y papelera SIN estado deshabilitado: si el rol no alcanza, el
+              botón no está. Es lo contrario del catálogo, donde la papelera
+              atenuada enseña por qué un tipo con tickets no se borra —ahí el
+              motivo es del DATO y cambia por fila—. Acá el motivo sería del
+              USUARIO y es el mismo en los cuarenta tickets de la lista: repetir
+              "no tenés permiso" en cada panel es ruido, no información. */}
+          {puedeEditar && (
+            <button
+              type="button"
+              className="btn-circular"
+              onClick={() => setEditandoTodo(true)}
+              aria-label="Editar ticket"
+              title="Editar ticket"
+            >
+              <IconoLapiz size={13} />
+            </button>
+          )}
+
+          {puedeBorrar && (
+            <button
+              type="button"
+              className="btn-circular btn-circular-peligro"
+              onClick={() => setConfirmandoBorrado(true)}
+              aria-label="Eliminar ticket"
+              title="Eliminar ticket"
+            >
+              <IconoPapelera size={13} />
+            </button>
+          )}
+
           <button type="button" className="btn-circular" onClick={cerrar} aria-label="Cerrar panel">
             <IconoCerrar />
           </button>
@@ -349,11 +437,9 @@ export function PanelDetalle({
 
           <span className="panel-etiqueta">Vence</span>
           {puedeEditar ? (
-            <input
-              type="date"
-              className="panel-valor mono-sm"
-              value={ticket.due_date ?? ''}
-              onChange={(e) => void aplicar({ dueDate: e.target.value || null })}
+            <CampoVence
+              iso={ticket.due_date}
+              onCambiar={(v) => void aplicar({ dueDate: v })}
             />
           ) : (
             <span className="panel-valor" aria-disabled="true">
@@ -455,6 +541,155 @@ export function PanelDetalle({
           }}
         />
       )}
+
+      {editandoTodo && (
+        <ModalNuevoTicket
+          catalogos={catalogos}
+          sesion={sesion}
+          prefill={null}
+          edicion={ticket}
+          onCerrar={() => setEditandoTodo(false)}
+        />
+      )}
+
+      {confirmandoBorrado && (
+        <MiniModal
+          titulo={`¿Eliminar el ticket #${ticket.number}?`}
+          descripcion={
+            <>
+              El ticket sale del tablero, de la tabla, del calendario y de los contadores. No se
+              borra nada:{' '}
+              {loQueSeConserva.length > 0
+                ? `${listar(loQueSeConserva)} quedan guardados`
+                : 'su historial queda guardado'}
+              , y si ya se había cerrado su tiempo de ciclo sigue contando en los reportes. Un admin
+              puede revertirlo.
+              <br />
+              <br />
+              Aun así, esto no es la salida para trabajo que ya no aplica: para eso está{' '}
+              <strong>cancelar</strong>, que deja el ticket a la vista con el motivo escrito.
+              Eliminar es para lo que nunca debió existir — un duplicado, una prueba, un import mal
+              hecho.
+            </>
+          }
+          onCerrar={() => setConfirmandoBorrado(false)}
+          pie={
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn-secundario"
+                onClick={() => setConfirmandoBorrado(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primario btn-primario-peligro"
+                disabled={borrando}
+                onClick={() => void borrar()}
+              >
+                {borrando && <Spinner label="Eliminando ticket" />}
+                {borrando ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </span>
+          }
+        >
+          <div className="borrado-previa">
+            <NumeroTicket numero={ticket.number} estado={ticket.state} />
+            <PillTipo tipo={ticket.tipo} />
+            <span className="borrado-previa-titulo">{ticket.title}</span>
+          </div>
+        </MiniModal>
+      )}
     </aside>
+  )
+}
+
+/** "a, b y c" — la coma sola antes del último elemento se lee como enumeración cortada. */
+function listar(partes: string[]): string {
+  if (partes.length === 1) return partes[0]
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
+}
+
+/**
+ * Campo VENCE del panel.
+ *
+ * EL PROBLEMA. Un `<input type="date">` dibuja su propio placeholder —y el orden
+ * de sus segmentos— según el locale del NAVEGADOR, no según el `lang` del
+ * documento. En un Chrome configurado en inglés, este campo mostraba
+ * "mm/dd/yyyy" en medio de una aplicación entera en español. No hay atributo
+ * `placeholder` que valga (el elemento lo ignora) ni selector CSS que alcance
+ * al shadow DOM del control de forma portable, y poner `lang="es"` en el input
+ * no cambia nada en Chrome: solo Firefox lo respeta parcialmente.
+ *
+ * LA SALIDA. Se muestra un botón con la fecha en texto español —"24 de agosto
+ * de 2026"— y el input nativo aparece al activarlo. Se gana en los dos frentes:
+ * el reposo, que es el 99% del tiempo, no tiene formato ambiguo (nadie lee
+ * "24 de agosto" como el mes 24), y la edición conserva el date picker nativo,
+ * el teclado de fecha en móvil y la validación del navegador. Cambiar el input
+ * por tres selects propios habría sido reimplementar un control que ya existe
+ * y funciona.
+ *
+ * Se monta con `autoFocus` y se llama `showPicker()` cuando el navegador lo
+ * soporta: sin eso, activar el campo obliga a un segundo clic sobre el iconito
+ * del calendario para que se abra el selector.
+ */
+function CampoVence({
+  iso,
+  onCambiar,
+}: {
+  iso: string | null
+  onCambiar: (valor: string | null) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        className="panel-valor"
+        onClick={() => setAbierto(true)}
+        title="Cambiar la fecha de vencimiento"
+      >
+        {iso ? (
+          <Vencimiento iso={iso} />
+        ) : (
+          <span className="panel-valor-vacio">Sin fecha</span>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <input
+      type="date"
+      autoFocus
+      lang="es"
+      className="panel-valor mono-sm"
+      aria-label="Fecha de vencimiento"
+      defaultValue={iso ?? ''}
+      ref={(nodo) => {
+        // `showPicker` es reciente y tira si se llama sin gesto del usuario. El
+        // try/catch es para el segundo caso, no para el primero.
+        if (!nodo) return
+        try {
+          nodo.showPicker?.()
+        } catch {
+          /* el usuario escribe la fecha a mano */
+        }
+      }}
+      onBlur={(e) => {
+        setAbierto(false)
+        const v = e.currentTarget.value || null
+        if (v !== iso) onCambiar(v)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          e.preventDefault()
+          e.stopPropagation()
+          e.currentTarget.blur()
+        }
+      }}
+    />
   )
 }

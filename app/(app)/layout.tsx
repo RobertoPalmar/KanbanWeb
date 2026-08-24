@@ -1,11 +1,16 @@
+import { cookies } from 'next/headers'
 import { requireSesion } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getAssignableUsers, getIssueTypes, getLabels, getPriorities } from '@/lib/queries/catalog'
-import { MenuLateralProvider } from '@/components/shell/MenuLateral'
+import { soloVivos } from '@/lib/queries/issues'
+import { COOKIE_NAV, MenuLateralProvider } from '@/components/shell/MenuLateral'
 import { NuevoTicketProvider } from '@/components/nuevo/NuevoTicketProvider'
 
 /**
- * Shell de la aplicación: barra lateral + contenido.
+ * Shell de la aplicación: barra lateral permanente + contenido.
+ *
+ * La barra la monta `MenuLateralProvider` junto con `.app`/`.contenido`: su
+ * ancho depende del estado contraída/expandida, y ese estado es de cliente.
  *
  * Los catálogos (tipos, prioridades, personas, etiquetas) se cargan acá una
  * sola vez: los usa el modal de creación y varios selectores del detalle, y son
@@ -14,6 +19,11 @@ import { NuevoTicketProvider } from '@/components/nuevo/NuevoTicketProvider'
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireSesion()
   const supabase = await createClient()
+
+  // El estado de la barra lateral se lee acá y no en el cliente: así el primer
+  // HTML ya sale con el ancho correcto y no hay salto al hidratar. Por defecto
+  // expandida — la primera vez conviene que se lean las etiquetas.
+  const contraidoInicial = (await cookies()).get(COOKIE_NAV)?.value === 'min'
 
   const [tipos, prioridades, personas, etiquetas, conteos] = await Promise.all([
     getIssueTypes(supabase),
@@ -35,10 +45,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         perfil={sesion.perfil}
         orgName={sesion.settings.org_name}
         conteos={conteos}
+        contraidoInicial={contraidoInicial}
       >
-        <div className="app">
-          <div className="contenido">{children}</div>
-        </div>
+        {children}
       </MenuLateralProvider>
     </NuevoTicketProvider>
   )
@@ -58,18 +67,27 @@ async function contarVistas(
 ) {
   const hoy = new Date().toISOString().slice(0, 10)
 
+  // Los tres son vistas de presente: un ticket borrado no está en ninguna
+  // pantalla a la que estos contadores llevan, así que contarlo mandaría al
+  // usuario a una lista con menos filas que el badge.
   const [mios, vencidos, borradores] = await Promise.all([
-    supabase
-      .from('issues')
-      .select('id', { count: 'exact', head: true })
-      .eq('owner_id', userId)
-      .in('state', ['todo', 'in_progress', 'in_review']),
-    supabase
-      .from('issues')
-      .select('id', { count: 'exact', head: true })
-      .lt('due_date', hoy)
-      .in('state', ['todo', 'in_progress', 'in_review']),
-    supabase.from('issues').select('id', { count: 'exact', head: true }).eq('state', 'draft'),
+    soloVivos(
+      supabase
+        .from('issues')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', userId)
+        .in('state', ['todo', 'in_progress', 'in_review']),
+    ),
+    soloVivos(
+      supabase
+        .from('issues')
+        .select('id', { count: 'exact', head: true })
+        .lt('due_date', hoy)
+        .in('state', ['todo', 'in_progress', 'in_review']),
+    ),
+    soloVivos(
+      supabase.from('issues').select('id', { count: 'exact', head: true }).eq('state', 'draft'),
+    ),
   ])
 
   return {

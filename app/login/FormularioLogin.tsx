@@ -5,8 +5,14 @@ import { useActionState } from 'react'
 import { Spinner } from '@/components/ui/Spinner'
 import { entrar, type EstadoLogin } from './actions'
 
-export function FormularioLogin() {
+/**
+ * `avisoInicial` es el mensaje que trae `/auth/callback` en la URL cuando un
+ * enlace de correo falló. Se muestra en el mismo hueco que el error del login: es
+ * el mismo tipo de información y competir por dos cajas distintas no ayuda.
+ */
+export function FormularioLogin({ avisoInicial }: { avisoInicial?: string }) {
   const [estado, accion, pendiente] = useActionState<EstadoLogin, FormData>(entrar, {})
+  const mensaje = estado.error ?? avisoInicial
 
   return (
     <form action={accion} className="login-caja">
@@ -21,7 +27,7 @@ export function FormularioLogin() {
         Gestión de trabajo del departamento.
       </p>
 
-      {estado.error && <p className="error-caja">{estado.error}</p>}
+      {mensaje && <p className="error-caja">{mensaje}</p>}
 
       <div className="grupo-campo">
         <label htmlFor="email">Correo</label>

@@ -28,6 +28,12 @@
 
   --acento: #0a73e8;
   --acento-suave: #e2eefd;
+  /* Resaltado de "tickets propios": más tenue que --acento-suave, que ya
+     significa "seleccionado". Tiene que leerse sobre --superficie sin convertir
+     media tabla en una mancha azul. */
+  --resaltado-bg: #f2f7fe;
+  --resaltado-bg-alto: #e8f1fd;
+  --acento-borde: #a9cdf7;
   --alerta: #e0182d;
   --alerta-suave: #fde7e9;
 
@@ -73,6 +79,9 @@
 
   --acento: #4d9dff;
   --acento-suave: #122540;
+  --resaltado-bg: #131a24;
+  --resaltado-bg-alto: #172130;
+  --acento-borde: #2b4a71;
   --alerta: #ff5a6b;
   --alerta-suave: #2e1418;
 

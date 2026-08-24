@@ -3,6 +3,12 @@
  *
  * NO EDITAR A MANO. Regenerar tras cada migración con:
  *   npx supabase gen types typescript --project-id bpitialkrbfgwsriiips > types/database.ts
+ *
+ * NOTA: `invitations.role`, `invitations.last_sent_at` y
+ * `invitation_aceptar_por_email` se escribieron a mano antes de aplicar la
+ * migración 20260824000200. Ya está aplicada y se verificó que estas tres
+ * definiciones coinciden con el schema remoto, así que la próxima regeneración
+ * no debería cambiarlas. Requiere `supabase login`.
  */
 
 export type Json =
@@ -361,6 +367,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          deleted_at: string | null
           description: string | null
           due_date: string | null
           external_id: string | null
@@ -378,6 +385,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          deleted_at?: string | null
           description?: string | null
           due_date?: string | null
           external_id?: string | null
@@ -395,6 +403,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
           description?: string | null
           due_date?: string | null
           external_id?: string | null
@@ -689,6 +698,8 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          last_sent_at: string
+          role: Database["public"]["Enums"]["user_role"]
         }
         Insert: {
           accepted_at?: string | null
@@ -699,6 +710,8 @@ export type Database = {
           email: string
           expires_at?: string
           id?: string
+          last_sent_at?: string
+          role?: Database["public"]["Enums"]["user_role"]
         }
         Update: {
           accepted_at?: string | null
@@ -709,6 +722,8 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          last_sent_at?: string
+          role?: Database["public"]["Enums"]["user_role"]
         }
         Relationships: []
       }
@@ -908,6 +923,7 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           days_in_current_state: number | null
+          deleted_at: string | null
           due_date: string | null
           imported: boolean | null
           issue_id: string | null
@@ -996,6 +1012,10 @@ export type Database = {
       }
     }
     Functions: {
+      invitation_aceptar_por_email: {
+        Args: { p_email: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
       invitation_valida: {
         Args: { p_code: string; p_email: string }
         Returns: boolean

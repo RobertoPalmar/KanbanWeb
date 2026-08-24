@@ -66,6 +66,30 @@ export function canManageSupporters(a: Actor, issue: IssueRef): boolean {
   return isAdmin(a) || issue.ownerId === a.id
 }
 
+/**
+ * Borrar un ticket. SOLO admin — ni el dueño ni el creador de un borrador.
+ *
+ * Borrar es SOFT-DELETE (`issues.deleted_at`, migración 20260824000400): el
+ * ticket sale de todas las vistas de presente y conserva su `issue_activity`,
+ * que es la FUENTE de `issue_timings`, `weekly_cycle_time` y `aging_wip`. Un
+ * DELETE real cascadearía ese log y le sacaría su cycle time al histórico,
+ * cambiando series de semanas ya reportadas; por eso no hay política FOR DELETE
+ * sobre `issues`.
+ *
+ * SIGUE SIENDO SOLO ADMIN aunque ya no destruya nada, y no es asimetría por
+ * descuido con `canEditIssue`: un ticket que desaparece del tablero sin dejar
+ * rastro visible es una decisión sobre el trabajo de todos. El member que
+ * quiere sacarse un ticket de encima tiene `cancelled`, que lo deja a la vista
+ * con el motivo escrito. Borrar es para lo que nunca debió existir —un
+ * duplicado, una prueba, un import mal hecho— y eso lo decide un admin.
+ *
+ * OJO, ESTE HELPER NO ES LA DEFENSA. Es de interfaz. La defensa real es el
+ * trigger `issues_guard_soft_delete`: al ser un UPDATE, `issues_update_owner`
+ * dejaría a un member fijar `deleted_at` en su propio ticket si solo hubiera
+ * políticas RLS de por medio.
+ */
+export const canDeleteIssue = (a: Actor) => isAdmin(a)
+
 export const canApproveDrafts = (a: Actor) => isAdmin(a)
 export const canViewReports = (a: Actor) => isAdmin(a)
 export const canAccessSettings = (a: Actor) => isAdmin(a)

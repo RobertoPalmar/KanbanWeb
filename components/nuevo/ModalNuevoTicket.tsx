@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { crearTicket } from '@/app/actions/issues'
+import {
+  actualizarTicket,
+  crearTicket,
+  guardarApoyos,
+  guardarEtiquetas,
+} from '@/app/actions/issues'
 import { createClient } from '@/lib/supabase/client'
 import { uploadAttachment } from '@/lib/queries/attachments'
 import { FIBONACCI_WEIGHTS } from '@/lib/queries/catalog'
@@ -10,7 +15,7 @@ import { initialState } from '@/lib/transitions'
 import { STATES } from '@/lib/states'
 import { hoyISO, tamanoArchivo } from '@/lib/format'
 import { priorityCircleBackground, typePillBackground } from '@/lib/design-map'
-import type { Catalogos, CtxSesion } from '@/lib/tipos'
+import type { Catalogos, CtxSesion, Ticket } from '@/lib/tipos'
 import { Avatar, ChipEstado, PillPrioridad } from '@/components/ui/piezas'
 import { IconoCerrar, IconoSubir } from '@/components/ui/iconos'
 import { Spinner } from '@/components/ui/Spinner'
@@ -21,24 +26,61 @@ interface Props {
   sesion: CtxSesion
   prefill: Prefill | null
   onCerrar: () => void
+  /**
+   * Ticket a editar. Si viene, el modal es de EDICIÓN: mismos campos, mismo
+   * layout, `actualizarTicket` en vez de `crearTicket`.
+   *
+   * POR QUÉ SE REUSA ESTE MODAL Y NO SE HIZO UN MODO EDICIÓN DEL PANEL
+   *
+   * El panel de detalle ya edita campo por campo con `SelectorEnSitio`, y eso
+   * es lo correcto para el triage: cambiar la prioridad no debería abrir un
+   * formulario. Lo que NO tenía era una forma de cambiar varias cosas a la vez,
+   * ni de editar el título sin descubrir que el `h1` es `contentEditable`, que
+   * es una afordancia que nadie encuentra sola.
+   *
+   * Un "modo edición" del panel entero habría sido una segunda implementación
+   * de los mismos nueve campos, con el agravante de que cada uno ya tiene su
+   * control funcionando: el modo edición tendría que apagarlos y dibujar otros
+   * al lado. Este modal, en cambio, YA ES ese formulario —título, descripción,
+   * tipo, prioridad, dueño, apoyos, vence, peso, etiquetas—, ya está validado y
+   * ya tiene el focus trap. La diferencia entre crear y editar son los valores
+   * iniciales y a qué acción se llama.
+   *
+   * LO QUE EL MODO EDICIÓN NO HACE: adjuntos y estado. Los adjuntos tienen su
+   * sección en el panel, con borrado por archivo y URLs firmadas, y duplicar
+   * eso acá sería la tercera copia. El estado no se toca porque moverlo tiene
+   * reglas de secuencia y a veces exige un motivo: eso es `moverEstado`, no un
+   * update de campos.
+   */
+  edicion?: Ticket | null
 }
 
-export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props) {
+export function ModalNuevoTicket({
+  catalogos,
+  sesion,
+  prefill,
+  onCerrar,
+  edicion = null,
+}: Props) {
+  const editando = edicion !== null
   const router = useRouter()
   const dialogo = useRef<HTMLDivElement>(null)
   const primerCampo = useRef<HTMLInputElement>(null)
 
-  const [titulo, setTitulo] = useState('')
-  const [descripcion, setDescripcion] = useState('')
-  const [tipoId, setTipoId] = useState(catalogos.tipos[0]?.id ?? '')
+  const [titulo, setTitulo] = useState(edicion?.title ?? '')
+  const [descripcion, setDescripcion] = useState(edicion?.description ?? '')
+  const [tipoId, setTipoId] = useState(edicion?.tipo.id ?? catalogos.tipos[0]?.id ?? '')
   const [prioridadId, setPrioridadId] = useState(
-    catalogos.prioridades.find((p) => p.name === 'Media')?.id ?? catalogos.prioridades[0]?.id ?? '',
+    edicion?.prioridad?.id ??
+      catalogos.prioridades.find((p) => p.name === 'Media')?.id ??
+      catalogos.prioridades[0]?.id ??
+      '',
   )
-  const [ownerId, setOwnerId] = useState(prefill?.ownerId ?? sesion.id)
-  const [apoyos, setApoyos] = useState<string[]>([])
-  const [vence, setVence] = useState(prefill?.dueDate ?? '')
-  const [peso, setPeso] = useState<number | ''>('')
-  const [etiquetas, setEtiquetas] = useState<string[]>([])
+  const [ownerId, setOwnerId] = useState(edicion?.owner_id ?? prefill?.ownerId ?? sesion.id)
+  const [apoyos, setApoyos] = useState<string[]>(edicion?.apoyos.map((a) => a.id) ?? [])
+  const [vence, setVence] = useState(edicion?.due_date ?? prefill?.dueDate ?? '')
+  const [peso, setPeso] = useState<number | ''>(edicion?.weight ?? '')
+  const [etiquetas, setEtiquetas] = useState<string[]>(edicion?.etiquetas.map((e) => e.id) ?? [])
   const [archivos, setArchivos] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -107,6 +149,55 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
     setGuardando(true)
     setError(null)
 
+    if (editando) {
+      // `guardarEtiquetas` y `guardarApoyos` son acciones aparte porque son
+      // tablas aparte: `actualizarTicket` toca solo columnas de `issues`.
+      const res = await actualizarTicket(edicion.id, {
+        title: titulo.trim(),
+        description: descripcion.trim() || null,
+        typeId: tipoId,
+        priorityId: prioridadId || null,
+        weight: peso === '' ? null : Number(peso),
+        dueDate: vence || null,
+        // El dueño solo viaja si cambió: `actualizarTicket` lo manda a la base y
+        // ahí lo rechaza RLS si el actor no es admin. Mandarlo igual haría
+        // fallar la edición entera de un member sobre su propio ticket.
+        ...(ownerId !== edicion.owner_id ? { ownerId } : {}),
+      })
+
+      if (!res.ok) {
+        setError(res.error)
+        setGuardando(false)
+        return
+      }
+
+      const etiquetasCambiaron =
+        [...etiquetas].sort().join() !== [...edicion.etiquetas.map((e) => e.id)].sort().join()
+      if (etiquetasCambiaron) {
+        const r = await guardarEtiquetas(edicion.id, etiquetas)
+        if (!r.ok) {
+          setError(r.error)
+          setGuardando(false)
+          return
+        }
+      }
+
+      const apoyosCambiaron =
+        [...apoyos].sort().join() !== [...edicion.apoyos.map((a) => a.id)].sort().join()
+      if (apoyosCambiaron) {
+        const r = await guardarApoyos(edicion.id, apoyos)
+        if (!r.ok) {
+          setError(r.error)
+          setGuardando(false)
+          return
+        }
+      }
+
+      onCerrar()
+      router.refresh()
+      return
+    }
+
     const res = await crearTicket({
       title: titulo.trim(),
       description: descripcion.trim() || undefined,
@@ -162,9 +253,9 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
         ref={dialogo}
       >
         <div className="modal-cab">
-          <h2 id="modal-nuevo-titulo">Nuevo ticket</h2>
+          <h2 id="modal-nuevo-titulo">{editando ? 'Editar ticket' : 'Nuevo ticket'}</h2>
           <span className="mono-sm" style={{ color: 'var(--tinta-3)' }}>
-            el número lo asigna el servidor
+            {editando ? `#${edicion.number}` : 'el número lo asigna el servidor'}
           </span>
           <button
             type="button"
@@ -255,6 +346,7 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
             </div>
           </div>
 
+          {!editando && (
           <div className="grupo-campo">
             <label>Estado inicial</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -266,6 +358,7 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
               </span>
             </div>
           </div>
+          )}
 
           <div className="grupo-campo">
             <label>Dueño</label>
@@ -378,6 +471,9 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
             </div>
           </div>
 
+          {/* Adjuntos solo al crear. Editando, la sección ADJUNTOS del panel ya
+              los gestiona uno por uno, con borrado y URLs firmadas. */}
+          {!editando && (
           <div className="grupo-campo">
             <label>Adjuntos</label>
             <label className="zona-arrastre">
@@ -420,19 +516,26 @@ export function ModalNuevoTicket({ catalogos, sesion, prefill, onCerrar }: Props
               </div>
             )}
           </div>
+          )}
         </div>
 
         <div className="modal-pie">
           <span className="mono-sm" style={{ color: 'var(--tinta-3)' }}>
-            ⌘↵ para crear
+            {editando ? '⌘↵ para guardar' : '⌘↵ para crear'}
           </span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button type="button" className="btn-secundario" onClick={onCerrar}>
               Cancelar
             </button>
             <button type="button" className="btn-primario" onClick={() => void enviar()} disabled={guardando}>
-              {guardando && <Spinner label="Creando ticket" />}
-              {guardando ? 'Creando…' : 'Crear ticket'}
+              {guardando && <Spinner label={editando ? 'Guardando ticket' : 'Creando ticket'} />}
+              {guardando
+                ? editando
+                  ? 'Guardando…'
+                  : 'Creando…'
+                : editando
+                  ? 'Guardar cambios'
+                  : 'Crear ticket'}
             </button>
           </span>
         </div>

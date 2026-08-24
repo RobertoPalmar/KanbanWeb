@@ -39,11 +39,13 @@ export function Kanban({
   onAbrir,
   ticketAbierto,
   sesion,
+  resaltarPropios,
 }: {
   tickets: Ticket[]
   onAbrir: (id: string | null) => void
   ticketAbierto: string | null
   sesion: CtxSesion
+  resaltarPropios: boolean
 }) {
   const router = useRouter()
   const [arrastre, setArrastre] = useState<Arrastre | null>(null)
@@ -242,6 +244,7 @@ export function Kanban({
                       abierta={ticketAbierto === t.id}
                       arrastrando={arrastre?.activo && arrastre.id === t.id}
                       soltado={soltado === t.id}
+                      resaltada={resaltarPropios && t.owner_id === sesion.id}
                       pesoActivo={sesion.pesoActivo}
                       puedeMover={canMoveIssue(
                         { id: sesion.id, role: sesion.role },

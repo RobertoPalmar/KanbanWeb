@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { soloVivos } from '@/lib/queries/issues'
 
 type Client = SupabaseClient<Database>
 
@@ -27,7 +28,7 @@ type Client = SupabaseClient<Database>
 export async function getIssueTypeTicketCounts(
   supabase: Client,
 ): Promise<Record<string, number>> {
-  const { data, error } = await supabase.from('issues').select('type_id')
+  const { data, error } = await soloVivos(supabase.from('issues').select('type_id'))
   if (error) throw error
 
   const conteo: Record<string, number> = {}

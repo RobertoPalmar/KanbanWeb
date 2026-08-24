@@ -17,6 +17,7 @@ export function TarjetaKanban({
   abierta,
   arrastrando,
   soltado,
+  resaltada,
   pesoActivo,
   puedeMover,
   onAbrir,
@@ -27,6 +28,12 @@ export function TarjetaKanban({
   abierta: boolean
   arrastrando?: boolean
   soltado?: boolean
+  /**
+   * Resaltado de "tickets propios". Va aparte de `data-propia` —que significa
+   * "la podés arrastrar"— porque un admin puede mover tarjetas que no son suyas:
+   * son dos preguntas distintas y colgarlas del mismo atributo las confundiría.
+   */
+  resaltada?: boolean
   pesoActivo: boolean
   puedeMover: boolean
   onAbrir: () => void
@@ -36,6 +43,7 @@ export function TarjetaKanban({
     <article
       className="tarjeta"
       data-propia={puedeMover}
+      data-resaltada={resaltada || undefined}
       data-arrastrando={arrastrando || undefined}
       data-soltado={soltado || undefined}
       style={abierta ? { borderColor: 'var(--acento)' } : undefined}

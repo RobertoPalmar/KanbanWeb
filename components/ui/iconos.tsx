@@ -212,3 +212,31 @@ export const IconoInfo = (p: Props) => (
     <path d="M7 4.35v.1" />
   </Svg>
 )
+
+/**
+ * Panel lateral con su columna marcada: contrae y expande la barra de
+ * navegación. La flecha apunta hacia donde va a moverse el borde, así que es el
+ * mismo ícono espejado según el estado.
+ */
+export const IconoPanelLateral = ({ contraido = false, ...p }: Props & { contraido?: boolean }) => (
+  <Svg {...p}>
+    <rect x="1.6" y="2.4" width="10.8" height="9.2" rx="2" />
+    <path d="M5.4 2.4v9.2" />
+    {contraido ? <path d="M7.6 5.6L9.4 7l-1.8 1.4" /> : <path d="M9.6 5.6L7.8 7l1.8 1.4" />}
+  </Svg>
+)
+
+/** Marcador: la vista "Mis tickets", lo que a uno le toca. */
+export const IconoMarcador = (p: Props) => (
+  <Svg {...p}>
+    <path d="M3.4 1.9h7.2v10.2L7 9.4l-3.6 2.7z" />
+  </Svg>
+)
+
+/** Reloj: la vista "Vencidos", donde el plazo ya pasó. */
+export const IconoReloj = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="7" cy="7" r="5.2" />
+    <path d="M7 4.2V7l2 1.5" />
+  </Svg>
+)

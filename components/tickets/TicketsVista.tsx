@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ORDERED_STATES, STATES } from '@/lib/states'
 import type { Catalogos, CtxSesion, Ticket } from '@/lib/tipos'
@@ -37,6 +37,35 @@ export function TicketsVista({
     done: true,
     cancelled: true,
   })
+
+  /**
+   * "Resaltar tickets propios" es una preferencia de visualización de este
+   * dispositivo, no un filtro: no cambia qué tickets se ven, así que no va en la
+   * URL (un enlace compartido no debería imponerle el resaltado a otra persona,
+   * que además querría el suyo, no el mío) ni en la base (obligaría a una
+   * migración y a un `revalidatePath` que recarga el árbol entero por un tilde).
+   * localStorage es lo más simple que persiste entre sesiones.
+   */
+  const [resaltarPropios, setResaltarPropios] = useState(false)
+
+  // Se lee después del montaje: en SSR no hay localStorage y leerlo en el
+  // estado inicial desincronizaría la hidratación.
+  useEffect(() => {
+    try {
+      setResaltarPropios(localStorage.getItem(CLAVE_RESALTADO) === '1')
+    } catch {
+      // Modo privado o storage bloqueado: se queda apagado, no es crítico.
+    }
+  }, [])
+
+  const cambiarResaltado = useCallback((valor: boolean) => {
+    setResaltarPropios(valor)
+    try {
+      localStorage.setItem(CLAVE_RESALTADO, valor ? '1' : '0')
+    } catch {
+      // Sin persistencia, pero la sesión actual funciona igual.
+    }
+  }, [])
 
   const abrirTicket = useCallback(
     (id: string | null) => {
@@ -86,7 +115,14 @@ export function TicketsVista({
   return (
     <>
       <BarraProgreso visible={navegando} />
-      <BarraFiltros catalogos={catalogos} agrupar={agrupar} total={tickets.length} />
+      <BarraFiltros
+        catalogos={catalogos}
+        agrupar={agrupar}
+        total={tickets.length}
+        sesionId={sesion.id}
+        resaltarPropios={resaltarPropios}
+        onResaltarPropios={cambiarResaltado}
+      />
 
       {modo === 'tabla' ? (
         <div className="vista-scroll">
@@ -99,6 +135,7 @@ export function TicketsVista({
             sesion={sesion}
             hayFiltros={hayFiltros}
             vacio={tickets.length === 0}
+            resaltarPropios={resaltarPropios}
           />
         </div>
       ) : (
@@ -107,6 +144,7 @@ export function TicketsVista({
           onAbrir={abrirTicket}
           ticketAbierto={params.get('ticket')}
           sesion={sesion}
+          resaltarPropios={resaltarPropios}
         />
       )}
     </>
@@ -131,3 +169,6 @@ function agrupaPor(
 
   return [...mapa.values()].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'))
 }
+
+/** Preferencia por dispositivo; el prefijo evita choques con otras vistas. */
+const CLAVE_RESALTADO = 'tablero:resaltar-propios'

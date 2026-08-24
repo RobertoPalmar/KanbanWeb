@@ -6,6 +6,7 @@ import { ORDERED_STATES, STATES } from '@/lib/states'
 import type { Catalogos } from '@/lib/tipos'
 import { IconoBuscar, IconoCaret, IconoCerrar, IconoMas } from '@/components/ui/iconos'
 import { MenuFlotante } from '@/components/ui/MenuFlotante'
+import { Avatar } from '@/components/ui/piezas'
 import { BarraProgreso } from '@/components/ui/Spinner'
 
 /**
@@ -32,16 +33,23 @@ export function BarraFiltros({
   catalogos,
   agrupar,
   total,
+  sesionId,
+  resaltarPropios,
+  onResaltarPropios,
 }: {
   catalogos: Catalogos
   agrupar: 'estado' | 'dueno' | 'tipo'
   total: number
+  sesionId: string
+  /** Preferencia de visualización, no filtro: vive fuera de la URL. */
+  resaltarPropios: boolean
+  onResaltarPropios: (valor: boolean) => void
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
 
-  const [menuAbierto, setMenuAbierto] = useState<'filtro' | 'agrupar' | 'vista' | null>(null)
+  const [menuAbierto, setMenuAbierto] = useState<'filtro' | 'agrupar' | 'vista' | 'dueno' | null>(null)
   const [busquedaMenu, setBusquedaMenu] = useState('')
   const [texto, setTexto] = useState(params.get('q') ?? '')
 
@@ -50,6 +58,7 @@ export function BarraFiltros({
   const btnVista = useRef<HTMLButtonElement>(null)
   const btnFiltro = useRef<HTMLButtonElement>(null)
   const btnAgrupar = useRef<HTMLButtonElement>(null)
+  const btnDueno = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     setTexto(params.get('q') ?? '')
@@ -92,11 +101,10 @@ export function BarraFiltros({
     }
 
     push('tipo', params.get('tipo'), catalogos.tipos.find((t) => t.id === params.get('tipo'))?.name)
-    push(
-      'dueno',
-      params.get('dueno'),
-      catalogos.personas.find((p) => p.id === params.get('dueno'))?.name,
-    )
+    // `mios=1` es un filtro por persona con otro nombre: aparece como chip para
+    // que el contador de filtros aplicados no lo deje afuera.
+    const duenoId = params.get('mios') === '1' ? sesionId : params.get('dueno')
+    push('dueno', duenoId, catalogos.personas.find((p) => p.id === duenoId)?.name)
     const est = params.get('estado')
     push('estado', est, est && est in STATES ? STATES[est as keyof typeof STATES].label : undefined)
     push('prio', params.get('prio'), catalogos.prioridades.find((p) => p.id === params.get('prio'))?.name)
@@ -109,9 +117,34 @@ export function BarraFiltros({
     push('hasta', params.get('hasta'), params.get('hasta') ?? undefined)
 
     return lista
-  }, [params, catalogos])
+  }, [params, catalogos, sesionId])
 
   const vista = params.get('mios') === '1' ? 'Mis tickets' : params.get('vencidos') === '1' ? 'Vencidos' : 'Todos los tickets'
+
+  /**
+   * El control de persona y la vista "Mis tickets" son el mismo filtro visto de
+   * dos maneras: `mios=1` es un atajo a `dueno=<yo>`. Se muestran unificados
+   * para que la barra nunca diga "Todas" mientras la lista trae solo las mías.
+   */
+  const duenoActivo = params.get('mios') === '1' ? sesionId : params.get('dueno')
+
+  const personaActiva = useMemo(
+    () => catalogos.personas.find((p) => p.id === duenoActivo) ?? null,
+    [catalogos.personas, duenoActivo],
+  )
+
+  // Yo primero: es la elección más frecuente y ahorra recorrer la lista.
+  const personasOrdenadas = useMemo(() => {
+    const yo = catalogos.personas.filter((p) => p.id === sesionId)
+    const resto = catalogos.personas.filter((p) => p.id !== sesionId)
+    return [...yo, ...resto]
+  }, [catalogos.personas, sesionId])
+
+  /** Elegir persona limpia `mios`: si no, el atajo pisaría la elección. */
+  function elegirDueno(id: string | null) {
+    navegar({ dueno: id, mios: null })
+    setMenuAbierto(null)
+  }
 
   const opciones = useMemo(() => {
     const items: Array<{ campo: Campo; valor: string; texto: string; color?: string }> = []
@@ -163,6 +196,27 @@ export function BarraFiltros({
         >
           <IconoMas size={11} />
           Filtro
+        </button>
+
+        <button
+          type="button"
+          ref={btnDueno}
+          className="chip-filtro"
+          data-activo={duenoActivo ? true : undefined}
+          aria-expanded={menuAbierto === 'dueno'}
+          onClick={() => setMenuAbierto(menuAbierto === 'dueno' ? null : 'dueno')}
+        >
+          {personaActiva ? (
+            <>
+              <Avatar persona={personaActiva} size={16} />
+              <strong style={{ fontWeight: 500, color: 'var(--tinta)' }}>
+                {personaActiva.id === sesionId ? 'Yo' : personaActiva.name}
+              </strong>
+            </>
+          ) : (
+            <>Asignado a: <strong style={{ fontWeight: 500, color: 'var(--tinta)' }}>Todas</strong></>
+          )}
+          <IconoCaret />
         </button>
 
         <button
@@ -251,6 +305,40 @@ export function BarraFiltros({
         </MenuFlotante>
 
         <MenuFlotante
+          ancla={btnDueno}
+          abierto={menuAbierto === 'dueno'}
+          onCerrar={() => setMenuAbierto(null)}
+          ancho={240}
+        >
+          <div className="menu-titulo">Asignado a</div>
+          <button
+            type="button"
+            className="menu-item"
+            data-activo={!duenoActivo}
+            onClick={() => elegirDueno(null)}
+          >
+            Todas las personas
+          </button>
+          {personasOrdenadas.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="menu-item"
+              data-activo={duenoActivo === p.id}
+              onClick={() => elegirDueno(p.id)}
+            >
+              <Avatar persona={p} size={18} />
+              {p.name}
+              {p.id === sesionId && (
+                <span className="mono-xs" style={{ marginLeft: 'auto', color: 'var(--tinta-3)' }}>
+                  yo
+                </span>
+              )}
+            </button>
+          ))}
+        </MenuFlotante>
+
+        <MenuFlotante
           ancla={btnAgrupar}
           abierto={menuAbierto === 'agrupar'}
           onCerrar={() => setMenuAbierto(null)}
@@ -273,6 +361,15 @@ export function BarraFiltros({
           ))}
         </MenuFlotante>
 
+        <label className="check-resaltar" title="Destaca tus tickets sin ocultar los demás">
+          <input
+            type="checkbox"
+            checked={resaltarPropios}
+            onChange={(e) => onResaltarPropios(e.target.checked)}
+          />
+          Resaltar tickets propios
+        </label>
+
         <label className="buscador">
           <IconoBuscar size={12} />
           <input
@@ -292,7 +389,9 @@ export function BarraFiltros({
               <button
                 type="button"
                 aria-label={`Quitar filtro ${NOMBRE_CAMPO[f.campo]}`}
-                onClick={() => navegar({ [f.campo]: null })}
+                onClick={() =>
+                  navegar(f.campo === 'dueno' ? { dueno: null, mios: null } : { [f.campo]: null })
+                }
               >
                 <IconoCerrar size={10} />
               </button>
@@ -307,7 +406,16 @@ export function BarraFiltros({
               type="button"
               className="btn-texto"
               onClick={() =>
-                navegar({ tipo: null, dueno: null, estado: null, prio: null, etiqueta: null, desde: null, hasta: null })
+                navegar({
+                  tipo: null,
+                  dueno: null,
+                  mios: null,
+                  estado: null,
+                  prio: null,
+                  etiqueta: null,
+                  desde: null,
+                  hasta: null,
+                })
               }
             >
               Quitar todos

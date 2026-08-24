@@ -35,6 +35,7 @@ export function Tabla({
   sesion,
   hayFiltros,
   vacio,
+  resaltarPropios,
 }: {
   grupos: Grupo[]
   colapsados: Record<string, boolean>
@@ -44,6 +45,7 @@ export function Tabla({
   sesion: CtxSesion
   hayFiltros: boolean
   vacio: boolean
+  resaltarPropios: boolean
 }) {
   const { abrir } = useNuevoTicket()
 
@@ -133,6 +135,7 @@ export function Tabla({
                   abierta={ticketAbierto === t.id}
                   onAbrir={onAbrir}
                   pesoActivo={sesion.pesoActivo}
+                  propio={resaltarPropios && t.owner_id === sesion.id}
                 />
               ))}
           </div>
@@ -167,11 +170,14 @@ function Fila({
   abierta,
   onAbrir,
   pesoActivo,
+  propio,
 }: {
   ticket: Ticket
   abierta: boolean
   onAbrir: (id: string | null) => void
   pesoActivo: boolean
+  /** Ya resuelto por la tabla: la fila solo lo pinta. */
+  propio: boolean
 }) {
   const { fg } = stateVars(ticket.state)
   const [menu, setMenu] = useState(false)
@@ -182,6 +188,7 @@ function Fila({
       role="row"
       tabIndex={0}
       data-abierta={abierta}
+      data-propio={propio || undefined}
       onClick={() => onAbrir(ticket.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

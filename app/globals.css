@@ -148,8 +148,116 @@ a {
 
 /* Barra lateral --------------------------------------------------------- */
 
-/* Cajón de navegación. Hereda los tokens de la barra oscura del handoff: el
-   contenedor cambió, el lenguaje visual no. */
+/* Barra permanente. Contraída son solo íconos (56px), expandida íconos +
+   etiquetas (236px). Antes esto era un cajón que solo existía abierto: cerrada,
+   la navegación no se veía y nadie sabía que estaba ahí.
+
+   El ancho lo fija `.barra-lateral`, no `.app`: así el `flex: 1` de
+   `.contenido` recalcula solo y el `margin-inline: auto` de `.pagina` sigue
+   centrando dentro del espacio que queda. */
+.barra-lateral {
+  flex: none;
+  width: 236px;
+  height: 100%;
+  background: var(--nav-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px 8px 8px;
+  gap: 2px;
+  transition: width 0.16s ease;
+}
+
+.barra-lateral[data-contraido='true'] {
+  width: 56px;
+  /* Contraída todo va centrado: el ícono es la única columna. */
+  padding-inline: 8px;
+}
+
+.barra-lateral[data-contraido='true'] .nav-marca {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.barra-lateral[data-contraido='true'] .nav-item,
+.barra-lateral[data-contraido='true'] .nav-alternar {
+  justify-content: center;
+  padding-inline: 0;
+  gap: 0;
+}
+
+/* El bloque de destinos ocupa el alto que sobra y empuja el pie hacia abajo. */
+.nav-destinos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Contraída no hay lugar para el rótulo "Vistas": una línea lo reemplaza. */
+.nav-separador {
+  height: 1px;
+  margin: 9px 6px 7px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* Contraída el badge con el número no entra: queda el punto, que dice lo
+   mismo que el del header — hay algo esperando. El conteo exacto vuelve al
+   expandir, y el `aria-label` del enlace lo lleva siempre. */
+.nav-punto {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--acento);
+}
+
+/* Control de contraer/expandir. Al pie de la barra y no en el header: es una
+   propiedad de la barra, y ahí está siempre a la vista sin competir con la
+   navegación. */
+.nav-alternar {
+  flex: none;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nav-fg-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.nav-alternar:hover {
+  background: var(--nav-hover);
+  color: #fff;
+}
+
+.nav-alternar svg {
+  flex: none;
+}
+
+/* Cajón de navegación. Solo se usa en pantallas angostas; hereda los tokens de
+   la barra oscura del handoff. */
 .cajon {
   flex: none;
   width: min(268px, 84vw);
@@ -157,7 +265,9 @@ a {
   background: var(--nav-bg);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  /* El scroll lo lleva `.nav-destinos` adentro: dos contenedores scrolleables
+     anidados dejaban la marca fuera de vista al arrastrar. */
+  overflow: hidden;
   padding: 10px 8px 8px;
   gap: 2px;
 }
@@ -196,6 +306,7 @@ a {
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -432,6 +543,7 @@ a {
 .btn-icono {
   display: grid;
   place-items: center;
+  line-height: 0;
   width: 22px;
   height: 22px;
   border: 1px solid var(--linea);
@@ -442,6 +554,14 @@ a {
   transition: border-color 0.12s, color 0.12s;
 }
 
+/* Los SVG son inline por defecto: como bloque, la caja del icono coincide
+   con lo que el grid centra, sin el hueco de la línea base debajo. */
+.btn-icono > svg,
+.btn-circular > svg,
+.btn-accion-fila > svg {
+  display: block;
+}
+
 .btn-icono:hover {
   border-color: var(--acento);
   color: var(--acento);
@@ -450,6 +570,7 @@ a {
 .btn-circular {
   display: grid;
   place-items: center;
+  line-height: 0;
   width: 26px;
   height: 26px;
   border: 1px solid var(--linea-fuerte);
@@ -462,6 +583,19 @@ a {
 .btn-circular:hover {
   border-color: var(--tinta-3);
   background: var(--superficie-2);
+}
+
+/* La papelera de la cabecera del panel: en `--alerta` SOLO al apuntarla o al
+   enfocarla con el teclado. En reposo va igual que el resto de los circulares
+   porque un icono rojo permanente a dos píxeles de la X de cerrar convierte lo
+   destructivo en lo más llamativo de la pantalla, justo al lado de la acción
+   más frecuente. Sirve en los dos temas: `--alerta-suave` ya está definida por
+   tema en tokens.css. */
+.btn-circular-peligro:hover,
+.btn-circular-peligro:focus-visible {
+  border-color: var(--alerta);
+  background: var(--alerta-suave);
+  color: var(--alerta);
 }
 
 .btn-texto {
@@ -2135,6 +2269,17 @@ textarea.campo {
 /* --- Hasta 900px: tablet ------------------------------------------------- */
 
 @media (max-width: 900px) {
+  /* Una barra permanente, aunque sean 56px, es ancho que en un teléfono le
+     falta a la tabla. Acá la navegación vuelve a ser un cajón superpuesto y el
+     botón del header vuelve a ser la puerta. */
+  .barra-lateral {
+    display: none;
+  }
+
+  .btn-menu {
+    display: inline-flex;
+  }
+
   .rejilla-2,
   .rejilla-2-iguales,
   .rejilla-3 {
@@ -2330,8 +2475,10 @@ textarea.campo {
   }
 }
 
+/* En escritorio la barra lateral es permanente: el botón del header sobra y
+   solo reaparece por debajo de 900px, donde la navegación vuelve a ser cajón. */
 .btn-menu {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 7px;
   flex: none;
@@ -2490,6 +2637,10 @@ textarea.campo {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* El ancho salta en vez de animarse: es el movimiento más grande de la app. */
+  .barra-lateral {
+    transition: none;
+  }
   .spinner {
     animation-duration: 1.6s;
   }
@@ -2632,6 +2783,11 @@ textarea.campo {
 .catalogo-agregar {
   margin-left: auto;
   flex: none;
+  /* Un poco mayor y circular: es la accion de alta de la seccion, no una
+     accion de fila. El centrado del icono lo resuelve .btn-icono. */
+  width: 26px;
+  height: 26px;
+  border-radius: 99px;
 }
 
 .catalogo-agregar:disabled {
@@ -2687,6 +2843,37 @@ textarea.campo {
   align-items: center;
   gap: 8px;
   min-height: 26px;
+}
+
+/* Previa del ticket dentro del diálogo de borrado. Se muestra el número, el
+   tipo y el título por la misma razón que el catálogo muestra la píldora del
+   tipo que se va a borrar: el diálogo llega después de un clic en una lista de
+   cuarenta filas, y confirmar a ciegas que "el ticket" se borra no es
+   confirmar nada. El título envuelve en varias líneas en vez de recortarse:
+   es el dato que identifica lo que se pierde. */
+.borrado-previa {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: var(--lienzo);
+}
+
+.borrado-previa-titulo {
+  flex: 1 1 100%;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--tinta);
+  text-wrap: pretty;
+}
+
+/* "Sin fecha" del campo VENCE: es un placeholder, no un valor, así que va en
+   la tinta más apagada para que no se lea como una fecha cargada. */
+.panel-valor-vacio {
+  color: var(--tinta-3);
 }
 
 /* Fila de un elemento del catálogo con sus controles. */
@@ -3020,4 +3207,101 @@ textarea.campo {
   .pista-boton {
     transition: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Filtro por persona asignada y resaltado de tickets propios
+ * ------------------------------------------------------------------------- */
+
+/* Un chip de filtro con valor elegido se distingue del vacío: borde de acento
+   suave, no relleno saturado — la barra tiene varios chips y uno lleno sería
+   el único elemento pesado de una franja de 36px. */
+.chip-filtro[data-activo='true'] {
+  border-color: var(--acento);
+  background: var(--acento-suave);
+  color: var(--tinta);
+}
+
+.check-resaltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 4px;
+  color: var(--tinta-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.check-resaltar:hover {
+  color: var(--tinta);
+}
+
+.check-resaltar input {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--acento);
+  cursor: pointer;
+}
+
+/* --- El resaltado -----------------------------------------------------------
+ *
+ * Nunca depende solo del color: la señal primaria es la barra de acento de 3px
+ * al borde izquierdo (tabla) o el anillo (kanban), y el fondo teñido es apoyo.
+ * Así funciona en monocromo y con cualquier deficiencia de visión al color.
+ *
+ * Tampoco pisa los estados que ya existen: en la tabla el vencido vive en el
+ * COLOR DEL TEXTO de la celda "Vence" y la tira de estado es un pseudo-elemento
+ * aparte, así que teñir el fondo de la fila no tapa ninguno de los dos. Y
+ * `[data-abierta]` gana por orden: la fila seleccionada manda sobre el
+ * resaltado, que es solo una ayuda de lectura.
+ * ------------------------------------------------------------------------- */
+
+.tabla-fila[data-propio] {
+  background: var(--resaltado-bg);
+  box-shadow: inset 3px 0 0 0 var(--acento);
+}
+
+.tabla-fila[data-propio]:hover {
+  background: var(--resaltado-bg-alto);
+}
+
+/* La fila abierta conserva su propio fondo; el resaltado se queda solo con la
+   barra, que sigue diciendo "esta es tuya" sin competir con la selección. */
+.tabla-fila[data-propio][data-abierta='true'] {
+  background: var(--acento-suave);
+}
+
+/* La tira de estado ocupa los primeros 3px de la fila: cuando hay resaltado se
+   corre para que las dos señales se lean, en vez de una tapando a la otra. */
+.tabla-fila[data-propio] .tira-estado {
+  margin-left: 3px;
+}
+
+.tarjeta[data-resaltada] {
+  background: var(--resaltado-bg);
+  box-shadow: var(--tarjeta-sombra), inset 0 0 0 1px var(--acento-borde);
+}
+
+/* La tarjeta arrastrable ya usa el borde izquierdo de 3px; cuando además está
+   resaltada ese borde pasa a acento y no se agrega una señal nueva. */
+.tarjeta[data-resaltada][data-propia='true'] {
+  border-left-color: var(--acento);
+}
+
+/* Sin arrastre no hay borde izquierdo grueso, así que el resaltado pone el suyo
+   para que la señal no sea únicamente el fondo. */
+.tarjeta[data-resaltada]:not([data-propia='true']) {
+  border-left: 3px solid var(--acento);
+  padding-left: 8px;
+}
+
+/* Arrastrando o recién soltada manda el estado de la interacción. */
+.tarjeta[data-resaltada][data-arrastrando='true'],
+.tarjeta[data-resaltada][data-soltado='true'] {
+  box-shadow: 0 0 0 3px var(--acento-suave);
 }

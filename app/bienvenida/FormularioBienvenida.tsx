@@ -1,12 +1,34 @@
 'use client'
 
-import Link from 'next/link'
 import { useActionState } from 'react'
 import { Spinner } from '@/components/ui/Spinner'
-import { registrarse, type EstadoRegistro } from './actions'
+import type { Role } from '@/lib/permissions'
+import { completarAlta, type EstadoBienvenida } from './actions'
 
-export function FormularioRegistro({ pideCodigo }: { pideCodigo: boolean }) {
-  const [estado, accion, pendiente] = useActionState<EstadoRegistro, FormData>(registrarse, {})
+/** Qué puede hacer cada rol, en una línea. Para que sepa a qué entró. */
+const QUE_PUEDE: Record<Role, string> = {
+  admin: 'Como admin aprobás borradores, reasignás dueños y administrás el equipo.',
+  member: 'Como miembro creás tickets, tomás trabajo propio y comentás en el de los demás.',
+  viewer: 'Con acceso de solo lectura ves todo el tablero, sin escribir.',
+}
+
+/**
+ * El rol llega como prop solo para mostrarlo. No es un campo del formulario ni
+ * viaja en el submit: ya está escrito en la base y esta pantalla no lo cambia.
+ */
+export function FormularioBienvenida({
+  email,
+  nombreActual,
+  rol,
+}: {
+  email: string
+  nombreActual: string
+  rol: Role
+}) {
+  const [estado, accion, pendiente] = useActionState<EstadoBienvenida, FormData>(
+    completarAlta,
+    {},
+  )
 
   return (
     <form action={accion} className="login-caja" style={{ width: 400 }}>
@@ -18,24 +40,15 @@ export function FormularioRegistro({ pideCodigo }: { pideCodigo: boolean }) {
       </div>
 
       <p className="subtitulo" style={{ margin: 0 }}>
-        Sumate al equipo. Entrás como miembro: podés crear tickets, tomar trabajo propio y
-        comentar en el de los demás.
+        Te invitaron al tablero. {QUE_PUEDE[rol]} Elegí una contraseña para poder volver a entrar.
       </p>
 
       {estado.error && <p className="error-caja">{estado.error}</p>}
 
-      {estado.aviso && (
-        <p
-          className="error-caja"
-          style={{
-            borderColor: 'var(--e5-fg)',
-            background: 'var(--e5-bg)',
-            color: 'var(--e5-fg)',
-          }}
-        >
-          {estado.aviso}
-        </p>
-      )}
+      <div className="grupo-campo">
+        <label htmlFor="email">Correo</label>
+        <input id="email" className="campo" value={email} disabled readOnly />
+      </div>
 
       <div className="grupo-campo">
         <label htmlFor="nombre">Nombre y apellido</label>
@@ -45,6 +58,7 @@ export function FormularioRegistro({ pideCodigo }: { pideCodigo: boolean }) {
           required
           autoComplete="name"
           className="campo"
+          defaultValue={nombreActual.includes(' ') ? nombreActual : ''}
           placeholder="Ana Navarro"
         />
       </div>
@@ -57,19 +71,6 @@ export function FormularioRegistro({ pideCodigo }: { pideCodigo: boolean }) {
           className="campo"
           autoComplete="organization-title"
           placeholder="Producción y eventos"
-        />
-      </div>
-
-      <div className="grupo-campo">
-        <label htmlFor="email">Correo</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          className="campo"
-          placeholder="nombre@organizacion.com"
         />
       </div>
 
@@ -100,33 +101,10 @@ export function FormularioRegistro({ pideCodigo }: { pideCodigo: boolean }) {
         />
       </div>
 
-      {/* Solo el código compartido del despliegue, y solo si está configurado.
-          Ya no hay código de invitación personal: a quien invitan le llega un
-          enlace por correo y no pasa por este formulario. */}
-      {pideCodigo && (
-        <div className="grupo-campo">
-          <label htmlFor="codigo">Código de acceso</label>
-          <input
-            id="codigo"
-            name="codigo"
-            required
-            className="campo mono"
-            placeholder="El que te pasó quien administra el tablero"
-          />
-        </div>
-      )}
-
       <button type="submit" className="btn-primario" style={{ height: 36 }} disabled={pendiente}>
-        {pendiente && <Spinner label="Creando cuenta" />}
-        {pendiente ? 'Creando cuenta…' : 'Crear cuenta'}
+        {pendiente && <Spinner label="Entrando al tablero" />}
+        {pendiente ? 'Entrando…' : 'Entrar al tablero'}
       </button>
-
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--tinta-2)' }}>
-        ¿Ya tenés cuenta?{' '}
-        <Link href="/login" style={{ color: 'var(--acento)' }}>
-          Entrar
-        </Link>
-      </p>
     </form>
   )
 }

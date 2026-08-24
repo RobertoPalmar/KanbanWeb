@@ -44,7 +44,7 @@ export default async function AjustesPage() {
       esAdmin
         ? supabase
             .from('invitations')
-            .select('id, email, code, created_at, expires_at, accepted_at')
+            .select('id, email, role, created_at, expires_at, last_sent_at, accepted_at')
             .order('created_at', { ascending: false })
         : Promise.resolve({ data: null }),
     ])

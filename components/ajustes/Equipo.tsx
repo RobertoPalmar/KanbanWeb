@@ -8,6 +8,7 @@ import {
   cambiarCapacidad,
   cambiarRol,
   invitar,
+  reenviarInvitacion,
   revocarInvitacion,
 } from '@/app/actions/equipo'
 import { guardarNombreEquipo } from '@/app/actions/perfil'
@@ -32,9 +33,11 @@ export interface Miembro {
 export interface Invitacion {
   id: string
   email: string
-  code: string
+  /** El rol que el admin eligió al invitar. Se aplica al aceptar. */
+  role: Role
   created_at: string
   expires_at: string
+  last_sent_at: string
   accepted_at: string | null
 }
 
@@ -43,6 +46,12 @@ const ROLES: Array<{ valor: Role; label: string; detalle: string }> = [
   { valor: 'member', label: 'Miembro', detalle: 'Crea tickets y mueve los propios' },
   { valor: 'viewer', label: 'Solo lectura', detalle: 'Ve el tablero, no escribe' },
 ]
+
+/** Rol -> etiqueta corta, para la lista de pendientes. Sale de ROLES: un solo lugar. */
+const ETIQUETA_ROL = Object.fromEntries(ROLES.map((r) => [r.valor, r.label])) as Record<
+  Role,
+  string
+>
 
 /**
  * Administración del equipo.
@@ -69,15 +78,22 @@ export function Equipo({
   const { guardar, estado } = useGuardado()
   const [nombre, setNombre] = useState(nombreEquipo)
   const [correoInvitado, setCorreoInvitado] = useState('')
-  const [codigoNuevo, setCodigoNuevo] = useState<string | null>(null)
+  // Arranca en `member`: es el rol con el que entra casi todo el mundo, y el de
+  // menor privilegio que igual puede trabajar. Que el default sea el inocuo.
+  const [rolInvitado, setRolInvitado] = useState<Role>('member')
 
   const activos = miembros.filter((m) => m.active)
   const bloqueados = miembros.filter((m) => !m.active)
   const pendientes = invitaciones.filter((i) => !i.accepted_at)
   const pendiente = estado === 'guardando'
 
-  function correr(accion: () => Promise<{ ok: boolean; error?: string }>) {
-    void guardar(accion).then((ok) => {
+  // `etiqueta` reemplaza el "Guardando…" genérico. Los envíos de correo tardan
+  // segundos, y un texto genérico varios segundos se lee como que algo se colgó.
+  function correr(
+    accion: () => Promise<{ ok: boolean; error?: string }>,
+    etiqueta?: string,
+  ) {
+    void guardar(accion, etiqueta).then((ok) => {
       if (ok) router.refresh()
     })
   }
@@ -222,9 +238,9 @@ export function Equipo({
       <section className="tarjeta-panel">
         <h3 className="mono-xs">Invitaciones</h3>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--tinta-2)' }}>
-          La invitación genera un código para ese correo, válido 14 días. Se lo pasás por el canal
-          que prefieras y lo usa al registrarse. El código habilita el alta, no otorga rol: entra
-          como miembro y lo promovés desde acá.
+          Escribí el correo y elegí con qué rol entra. Le llega un correo con un enlace: lo abre,
+          elige su contraseña y ya está adentro con ese rol. El enlace vale 14 días y sirve una
+          sola vez.
         </p>
 
         <div className="fila-guardar" style={{ marginBottom: 12 }}>
@@ -234,23 +250,39 @@ export function Equipo({
             value={correoInvitado}
             placeholder="persona@organizacion.com"
             aria-label="Correo a invitar"
+            disabled={pendiente}
             onChange={(e) => setCorreoInvitado(e.target.value)}
           />
+
+          <div className="segmentado" role="group" aria-label="Rol de la invitación">
+            {ROLES.map((r) => (
+              <button
+                key={r.valor}
+                type="button"
+                title={r.detalle}
+                style={{ fontSize: 11, padding: '0 8px' }}
+                aria-pressed={rolInvitado === r.valor}
+                disabled={pendiente}
+                onClick={() => setRolInvitado(r.valor)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             className="btn-primario"
             disabled={pendiente || !correoInvitado.trim()}
             onClick={() => {
-              setCodigoNuevo(null)
-              void guardar(async () => {
-                const res = await invitar(correoInvitado)
-                // El código solo existe en esta respuesta: si no se guarda acá
-                // se pierde, y sin código la invitación no sirve para nada.
-                if (res.ok) setCodigoNuevo(res.codigo)
-                return res
-              }).then((ok) => {
+              const destino = correoInvitado.trim()
+              void guardar(
+                () => invitar(destino, rolInvitado),
+                `Enviando invitación a ${destino}…`,
+              ).then((ok) => {
                 if (ok) {
                   setCorreoInvitado('')
+                  setRolInvitado('member')
                   router.refresh()
                 }
               })
@@ -260,50 +292,73 @@ export function Equipo({
           </button>
         </div>
 
-        {codigoNuevo && (
-          <p
-            className="error-caja"
-            style={{ borderColor: 'var(--e5-fg)', background: 'var(--e5-bg)', color: 'var(--e5-fg)' }}
-          >
-            Código generado: <strong className="mono">{codigoNuevo}</strong> — copialo ahora y
-            mandáselo. Queda listado abajo mientras esté pendiente.
-          </p>
-        )}
-
         {pendientes.length === 0 ? (
           <p style={{ fontSize: 12.5, color: 'var(--tinta-3)', margin: 0 }}>
             Sin invitaciones pendientes.
           </p>
         ) : (
           <div className="lista-borde">
-            {pendientes.map((i) => (
-              <div className="adjunto" key={i.id} style={{ height: 36 }}>
-                <span className="mono" style={{ fontSize: 11.5 }}>
-                  {i.code}
-                </span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {i.email}
-                </span>
-                <span
-                  className="mono-sm"
-                  style={{ marginLeft: 'auto', color: 'var(--tinta-2)', flex: 'none' }}
-                >
-                  vence {fechaCorta(i.expires_at.slice(0, 10))}
-                </span>
-                <button
-                  type="button"
-                  className="btn-icono"
-                  style={{ flex: 'none' }}
-                  aria-label={`Revocar invitación de ${i.email}`}
-                  disabled={pendiente}
-                  onClick={() => correr(() => revocarInvitacion(i.id))}
-                >
-                  <IconoCerrar size={11} />
-                </button>
-              </div>
-            ))}
+            {pendientes.map((i) => {
+              const vencida = new Date(i.expires_at) <= new Date()
+              return (
+                <div className="adjunto" key={i.id} style={{ height: 36 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {i.email}
+                  </span>
+
+                  <span className="mono-sm" style={{ color: 'var(--tinta-2)', flex: 'none' }}>
+                    {ETIQUETA_ROL[i.role]}
+                  </span>
+
+                  <span
+                    className="mono-sm"
+                    style={{
+                      marginLeft: 'auto',
+                      color: vencida ? 'var(--alerta)' : 'var(--tinta-2)',
+                      flex: 'none',
+                    }}
+                  >
+                    {vencida ? 'vencida' : `vence ${fechaCorta(i.expires_at.slice(0, 10))}`}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    style={{ height: 24, flex: 'none', fontSize: 11 }}
+                    disabled={pendiente || vencida}
+                    title={
+                      vencida
+                        ? 'Venció: revocala y volvé a invitar'
+                        : 'Manda de nuevo el mismo correo, con el mismo rol'
+                    }
+                    onClick={() =>
+                      correr(() => reenviarInvitacion(i.id), `Reenviando a ${i.email}…`)
+                    }
+                  >
+                    Reenviar
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-icono"
+                    style={{ flex: 'none' }}
+                    aria-label={`Revocar invitación de ${i.email}`}
+                    title="Revocar: el enlace del correo deja de servir"
+                    disabled={pendiente}
+                    onClick={() => correr(() => revocarInvitacion(i.id))}
+                  >
+                    <IconoCerrar size={11} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
+
+        <p style={{ margin: '12px 0 0', fontSize: 11.5, color: 'var(--tinta-3)' }}>
+          El rol se decide acá y viaja en la invitación: quien acepta entra ya con ese rol, sin
+          que tengas que promoverlo después. Revocar una invitación pendiente invalida su enlace.
+        </p>
       </section>
     </>
   )
