@@ -9,7 +9,7 @@ import {
 import { Header } from '@/components/shell/Header'
 import { Ajustes } from '@/components/ajustes/Ajustes'
 import { Catalogo } from '@/components/ajustes/Catalogo'
-import { Equipo, type Invitacion, type Miembro } from '@/components/ajustes/Equipo'
+import { Equipo, type Miembro } from '@/components/ajustes/Equipo'
 import { ProveedorGuardado } from '@/components/ui/ContextoGuardado'
 
 export default async function AjustesPage() {
@@ -21,7 +21,7 @@ export default async function AjustesPage() {
   // Los conteos solo los necesita el admin: es el único que ve los botones de
   // borrar y archivar que dependen de ellos. Para un miembro son dos consultas
   // sobre `issues` y `issue_labels` que no cambiarían nada de lo que ve.
-  const [tipos, etiquetas, conteoTipos, usosEtiquetas, notif, miembros, invitaciones] =
+  const [tipos, etiquetas, conteoTipos, usosEtiquetas, notif, miembros] =
     await Promise.all([
       getIssueTypes(supabase, true),
       getLabels(supabase, true),
@@ -41,12 +41,14 @@ export default async function AjustesPage() {
             .order('active', { ascending: false })
             .order('name', { ascending: true })
         : Promise.resolve({ data: null }),
-      esAdmin
-        ? supabase
-            .from('invitations')
-            .select('id, email, role, created_at, expires_at, last_sent_at, accepted_at')
-            .order('created_at', { ascending: false })
-        : Promise.resolve({ data: null }),
+      // Invitaciones desactivadas por ahora: sin bloque que las muestre, la
+      // consulta sería trabajo tirado. Ver el comentario en `Equipo`.
+      // esAdmin
+      //   ? supabase
+      //       .from('invitations')
+      //       .select('id, email, role, created_at, expires_at, last_sent_at, accepted_at')
+      //       .order('created_at', { ascending: false })
+      //   : Promise.resolve({ data: null }),
     ])
 
   return (
@@ -92,7 +94,6 @@ export default async function AjustesPage() {
             {esAdmin && (
               <Equipo
                 miembros={(miembros.data ?? []) as Miembro[]}
-                invitaciones={(invitaciones.data ?? []) as Invitacion[]}
                 nombreEquipo={sesion.settings.org_name}
                 yoId={sesion.actor.id}
               />

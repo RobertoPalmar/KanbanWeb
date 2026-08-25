@@ -8,15 +8,17 @@ import {
   cambiarCapacidad,
   cambiarRol,
   eliminarUsuario,
-  invitar,
-  reenviarInvitacion,
-  revocarInvitacion,
+  // Invitaciones desactivadas por ahora: ver el bloque comentado más abajo.
+  // invitar,
+  // reenviarInvitacion,
+  // revocarInvitacion,
 } from '@/app/actions/equipo'
 import { guardarNombreEquipo } from '@/app/actions/perfil'
-import { fechaCorta, plural } from '@/lib/format'
+import { plural } from '@/lib/format'
+// import { fechaCorta } from '@/lib/format'
 import type { Role } from '@/lib/permissions'
 import { Avatar } from '@/components/ui/piezas'
-import { IconoCerrar } from '@/components/ui/iconos'
+// import { IconoCerrar } from '@/components/ui/iconos'
 import { MiniModal } from '@/components/ui/MiniModal'
 import { Pista } from '@/components/ui/Pista'
 import { useGuardado } from '@/components/ui/ContextoGuardado'
@@ -32,16 +34,17 @@ export interface Miembro {
   avatar_url: string | null
 }
 
-export interface Invitacion {
-  id: string
-  email: string
-  /** El rol que el admin eligió al invitar. Se aplica al aceptar. */
-  role: Role
-  created_at: string
-  expires_at: string
-  last_sent_at: string
-  accepted_at: string | null
-}
+// Invitaciones desactivadas por ahora.
+// export interface Invitacion {
+//   id: string
+//   email: string
+//   /** El rol que el admin eligió al invitar. Se aplica al aceptar. */
+//   role: Role
+//   created_at: string
+//   expires_at: string
+//   last_sent_at: string
+//   accepted_at: string | null
+// }
 
 const ROLES: Array<{ valor: Role; label: string; detalle: string }> = [
   { valor: 'admin', label: 'Admin', detalle: 'Aprueba borradores, reasigna dueños, administra el equipo' },
@@ -49,11 +52,12 @@ const ROLES: Array<{ valor: Role; label: string; detalle: string }> = [
   { valor: 'viewer', label: 'Solo lectura', detalle: 'Ve el tablero, no escribe' },
 ]
 
-/** Rol -> etiqueta corta, para la lista de pendientes. Sale de ROLES: un solo lugar. */
-const ETIQUETA_ROL = Object.fromEntries(ROLES.map((r) => [r.valor, r.label])) as Record<
-  Role,
-  string
->
+// Invitaciones desactivadas por ahora.
+// /** Rol -> etiqueta corta, para la lista de pendientes. Sale de ROLES: un solo lugar. */
+// const ETIQUETA_ROL = Object.fromEntries(ROLES.map((r) => [r.valor, r.label])) as Record<
+//   Role,
+//   string
+// >
 
 /**
  * Administración del equipo.
@@ -64,12 +68,12 @@ const ETIQUETA_ROL = Object.fromEntries(ROLES.map((r) => [r.valor, r.label])) as
  */
 export function Equipo({
   miembros,
-  invitaciones,
+  // invitaciones,
   nombreEquipo,
   yoId,
 }: {
   miembros: Miembro[]
-  invitaciones: Invitacion[]
+  // invitaciones: Invitacion[]
   nombreEquipo: string
   yoId: string
 }) {
@@ -79,10 +83,11 @@ export function Equipo({
   // tendría que elegir cuál de las filas lo muestra.
   const { guardar, estado } = useGuardado()
   const [nombre, setNombre] = useState(nombreEquipo)
-  const [correoInvitado, setCorreoInvitado] = useState('')
-  // Arranca en `member`: es el rol con el que entra casi todo el mundo, y el de
-  // menor privilegio que igual puede trabajar. Que el default sea el inocuo.
-  const [rolInvitado, setRolInvitado] = useState<Role>('member')
+  // Invitaciones desactivadas por ahora.
+  // const [correoInvitado, setCorreoInvitado] = useState('')
+  // // Arranca en `member`: es el rol con el que entra casi todo el mundo, y el de
+  // // menor privilegio que igual puede trabajar. Que el default sea el inocuo.
+  // const [rolInvitado, setRolInvitado] = useState<Role>('member')
 
   /** Persona con la confirmación de borrado abierta, o null. */
   const [eliminando, setEliminando] = useState<Miembro | null>(null)
@@ -102,7 +107,7 @@ export function Equipo({
 
   const activos = miembros.filter((m) => m.active)
   const bloqueados = miembros.filter((m) => !m.active)
-  const pendientes = invitaciones.filter((i) => !i.accepted_at)
+  // const pendientes = invitaciones.filter((i) => !i.accepted_at)
   const pendiente = estado === 'guardando'
 
   // `etiqueta` reemplaza el "Guardando…" genérico. Los envíos de correo tardan
@@ -302,6 +307,12 @@ export function Equipo({
         </p>
       </section>
 
+      {/*
+        Invitar personas queda fuera de la vista por ahora: el alta se hace
+        por fuera de la app. El bloque se conserva comentado, junto con sus
+        acciones y su consulta en la página, para volver a habilitarlo sin
+        reescribirlo.
+
       <section className="tarjeta-panel">
         <h3 className="mono-xs">Invitaciones</h3>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--tinta-2)' }}>
@@ -427,6 +438,7 @@ export function Equipo({
           que tengas que promoverlo después. Revocar una invitación pendiente invalida su enlace.
         </p>
       </section>
+      */}
 
       {eliminando && (
         <MiniModal
